@@ -1,0 +1,23 @@
+flowchart LR
+    Patient[Patient]
+    Doctor[Doctor]
+    Receptionist[Receptionist]
+    Admin[Administrator]
+    HMS((Hospital Management System))
+
+    Patient -->|Registration, login, profile data, booking and cancellation requests| HMS
+    HMS -->|Available doctors, appointment status, prescriptions, medical history and invoices| Patient
+
+    Doctor -->|Availability, consultation notes, diagnosis and prescriptions| HMS
+    HMS -->|Assigned appointments and authorized patient history| Doctor
+
+    Receptionist -->|Patient registration, walk-in data, appointment and billing updates| HMS
+    HMS -->|Schedules, patient details, appointment status and invoice information| Receptionist
+
+    Admin -->|Staff management, configuration and oversight requests| HMS
+    HMS -->|Operational summaries, account status and audit information| Admin
+
+    classDef external fill:#E8F1FB,stroke:#1F4E79,stroke-width:1.5px,color:#102A43;
+    classDef system fill:#D9EAD3,stroke:#38761D,stroke-width:2px,color:#17320F;
+    class Patient,Doctor,Receptionist,Admin external;
+    class HMS system;

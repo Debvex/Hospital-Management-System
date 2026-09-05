@@ -1,0 +1,82 @@
+erDiagram
+    USER ||--o| DOCTOR : has
+    USER ||--o| PATIENT : has
+    DOCTOR ||--o{ AVAILABILITY : defines
+    DOCTOR ||--o{ APPOINTMENT : receives
+    PATIENT ||--o{ APPOINTMENT : books
+    APPOINTMENT ||--o| MEDICAL_RECORD : produces
+    APPOINTMENT ||--o{ PRESCRIPTION : includes
+    APPOINTMENT ||--o| INVOICE : generates
+    USER ||--o{ AUDIT_LOG : creates
+
+    USER {
+        int id PK
+        string email UK
+        string password_hash
+        enum role
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    DOCTOR {
+        int id PK
+        int user_id FK
+        string specialization
+        string department
+        decimal consultation_fee
+    }
+    PATIENT {
+        int id PK
+        int user_id FK
+        date date_of_birth
+        string blood_group
+        string contact_number
+    }
+    AVAILABILITY {
+        int id PK
+        int doctor_id FK
+        datetime start_time
+        datetime end_time
+        boolean is_active
+    }
+    APPOINTMENT {
+        int id PK
+        int patient_id FK
+        int doctor_id FK
+        datetime appointment_datetime
+        enum status
+        string reason
+        datetime created_at
+    }
+    MEDICAL_RECORD {
+        int id PK
+        int appointment_id FK
+        string diagnosis
+        text notes
+        int created_by FK
+        datetime created_at
+    }
+    PRESCRIPTION {
+        int id PK
+        int appointment_id FK
+        text medication_details
+        text notes
+        datetime issued_at
+    }
+    INVOICE {
+        int id PK
+        int appointment_id FK
+        int patient_id FK
+        decimal subtotal
+        decimal total
+        enum status
+        datetime issued_at
+    }
+    AUDIT_LOG {
+        int id PK
+        int user_id FK
+        string action
+        string resource
+        int resource_id
+        datetime created_at
+    }
