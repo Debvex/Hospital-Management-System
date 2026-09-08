@@ -4,88 +4,61 @@ flowchart LR
     Receptionist[Receptionist]
     Admin[Administrator]
 
-    P1((1.0 Authenticate and Authorize))
-    P2((2.0 Manage Users and Profiles))
-    P3((3.0 Manage Doctors and Availability))
-    P4((4.0 Manage Appointments))
-    P5((5.0 Manage Medical Records))
-    P6((6.0 Manage Billing))
-    P7((7.0 Audit and Reporting))
+    P1((1.0 User Authentication))
+    P2((2.0 Doctor and Availability Management))
+    P3((3.0 Appointment Management))
+    P4((4.0 Medical Records Management))
+    P5((5.0 Billing and Reporting))
 
-    D1[(D1 Users and Profiles)]
-    D2[(D2 Doctor Availability)]
-    D3[(D3 Appointments)]
-    D4[(D4 Medical Records and Prescriptions)]
-    D5[(D5 Invoices)]
-    D6[(D6 Audit Logs)]
+    D1[(D1 User Data)]
+    D2[(D2 Doctor and Availability Data)]
+    D3[(D3 Appointment Data)]
+    D4[(D4 Medical and Billing Data)]
 
-    Patient -->|Credentials| P1
-    Doctor -->|Credentials| P1
-    Receptionist -->|Credentials| P1
-    Admin -->|Credentials| P1
-    P1 -->|Session/token and access result| Patient
-    P1 -->|Session/token and access result| Doctor
-    P1 -->|Session/token and access result| Receptionist
-    P1 -->|Session/token and access result| Admin
+    Patient -->|Login credentials| P1
+    Doctor -->|Login credentials| P1
+    Receptionist -->|Login credentials| P1
+    Admin -->|Login credentials| P1
     P1 <--> D1
+    P1 -->|Session token and access result| Patient
+    P1 -->|Session token and access result| Doctor
+    P1 -->|Session token and access result| Receptionist
+    P1 -->|Session token and access result| Admin
 
-    Patient -->|Registration and profile data| P2
-    Receptionist -->|Patient registration and profile updates| P2
-    Admin -->|Staff account and role changes| P2
-    P2 <--> D1
-    P2 -->|Patient or staff profile result| Patient
-    P2 -->|Profile information| Receptionist
-    P2 -->|Account status and user information| Admin
+    Patient -->|Doctor search request| P2
+    Doctor -->|Availability information| P2
+    Admin -->|Doctor configuration| P2
+    P2 <--> D2
+    P2 -->|Doctor list and available slots| Patient
+    P2 -->|Doctor list and available slots| Receptionist
 
-    Doctor -->|Availability periods and profile changes| P3
-    Admin -->|Doctor profile and configuration changes| P3
-    Patient -->|Doctor and slot search| P3
-    Receptionist -->|Doctor and slot search| P3
-    P3 <--> D1
-    P3 <--> D2
-    P3 -->|Available doctors and time slots| Patient
-    P3 -->|Available doctors and time slots| Receptionist
+    Patient -->|Booking or cancellation request| P3
+    Receptionist -->|Appointment scheduling request| P3
+    Doctor -->|Appointment status update| P3
+    P3 <--> D3
+    P3 -->|Appointment confirmation and status| Patient
+    P3 -->|Appointment schedule| Doctor
+    P3 -->|Appointment schedule| Receptionist
 
-    Patient -->|Booking or cancellation request| P4
-    Receptionist -->|Booking, rescheduling or cancellation request| P4
-    Doctor -->|Appointment status update| P4
-    P4 <--> D2
+    Doctor -->|Diagnosis, notes, and prescriptions| P4
+    Patient -->|Medical-history request| P4
     P4 <--> D3
-    P4 -->|Appointment confirmation and status| Patient
-    P4 -->|Assigned appointment list| Doctor
-    P4 -->|Schedule and appointment status| Receptionist
+    P4 <--> D4
+    P4 -->|Medical records and prescriptions| Patient
+    P4 -->|Patient history| Doctor
 
-    Doctor -->|Diagnosis, notes and prescription| P5
-    Patient -->|Medical history request| P5
+    Receptionist -->|Invoice and payment information| P5
+    Patient -->|Invoice request| P5
+    Admin -->|Report request| P5
     P5 <--> D3
     P5 <--> D4
-    P5 -->|Authorized medical history and prescriptions| Patient
-    P5 -->|Assigned patient history| Doctor
-
-    Receptionist -->|Invoice details and payment status| P6
-    Admin -->|Billing oversight| P6
-    Patient -->|Invoice request| P6
-    P6 <--> D3
-    P6 <--> D5
-    P6 -->|Invoice and billing status| Patient
-    P6 -->|Invoice result| Receptionist
-    P6 -->|Billing summary| Admin
-
-    Admin -->|Report and audit request| P7
-    P7 <--> D1
-    P7 <--> D3
-    P7 <--> D5
-    P7 <--> D6
-    P1 -->|Security event| D6
-    P2 -->|Account event| D6
-    P4 -->|Appointment event| D6
-    P5 -->|Clinical record event| D6
-    P6 -->|Billing event| D6
-    P7 -->|Operational reports and audit information| Admin
+    P5 -->|Invoice and billing status| Patient
+    P5 -->|Billing result| Receptionist
+    P5 -->|Operational report| Admin
 
     classDef external fill:#E8F1FB,stroke:#1F4E79,stroke-width:1.5px,color:#102A43;
     classDef process fill:#FFF2CC,stroke:#BF9000,stroke-width:1.5px,color:#4A3B00;
     classDef store fill:#F4CCCC,stroke:#990000,stroke-width:1.5px,color:#4A0000;
     class Patient,Doctor,Receptionist,Admin external;
-    class P1,P2,P3,P4,P5,P6,P7 process;
-    class D1,D2,D3,D4,D5,D6 store;
+    class P1,P2,P3,P4,P5 process;
+    class D1,D2,D3,D4 store;
