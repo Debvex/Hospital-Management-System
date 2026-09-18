@@ -1,0 +1,85 @@
+flowchart LR
+    %% External users
+    Patient[Patient]
+    Doctor[Doctor]
+    Receptionist[Receptionist]
+    Administrator[Administrator]
+
+    %% Client layer
+    subgraph Client[Client Layer]
+        Browser[Web Browser]
+        Frontend[React + TypeScript Frontend]
+        UI[Responsive HMS Dashboard]
+        Browser --> Frontend
+        Frontend --> UI
+    end
+
+    %% API layer
+    subgraph API[Express API Layer — Node.js]
+        Router[API Router<br/>/api/v1]
+        Middleware[Express Middleware]
+        Auth[JWT Authentication]
+        RBAC[Role-Based Access Control]
+        Validation[Zod Request Validation]
+        Controller[Controllers]
+    end
+
+    %% Application layer
+    subgraph Application[Application Layer]
+        Services[Business Services]
+        AppointmentRules[Appointment Rules<br/>Availability and Conflict Prevention]
+        ClinicalRules[Clinical Record Rules<br/>Doctor and Patient Access]
+        BillingRules[Billing Rules<br/>Invoice and Payment Status]
+        Audit[Audit Logging]
+    end
+
+    %% Persistence layer
+    subgraph Persistence[Persistence Layer]
+        Repository[Repository Layer]
+        Drizzle[Drizzle ORM]
+        PostgreSQL[(PostgreSQL Database)]
+    end
+
+    %% User interactions
+    Patient --> Browser
+    Doctor --> Browser
+    Receptionist --> Browser
+    Administrator --> Browser
+
+    %% Request flow
+    Frontend -->|HTTPS / JSON requests| Router
+    Router --> Middleware
+    Middleware --> Auth
+    Auth --> RBAC
+    RBAC --> Validation
+    Validation --> Controller
+    Controller --> Services
+
+    %% Business logic
+    Services --> AppointmentRules
+    Services --> ClinicalRules
+    Services --> BillingRules
+    Services --> Audit
+    Services --> Repository
+
+    %% Database flow
+    Repository --> Drizzle
+    Drizzle -->|SQL transactions| PostgreSQL
+    PostgreSQL --> Drizzle
+    Drizzle --> Repository
+    Repository --> Services
+    Services --> Controller
+    Controller -->|JSON responses| Frontend
+
+    %% Styling
+    classDef external fill:#e7f7f5,stroke:#197774,stroke-width:1.5px,color:#16484e;
+    classDef client fill:#eef0ff,stroke:#6651a8,stroke-width:1.5px,color:#30265f;
+    classDef api fill:#fff3d4,stroke:#a37619,stroke-width:1.5px,color:#624a0e;
+    classDef application fill:#e7f0ff,stroke:#3d6fa9,stroke-width:1.5px,color:#203f66;
+    classDef persistence fill:#ffe7e7,stroke:#aa5a5a,stroke-width:1.5px,color:#672e35;
+
+    class Patient,Doctor,Receptionist,Administrator external;
+    class Browser,Frontend,UI client;
+    class Router,Middleware,Auth,RBAC,Validation,Controller api;
+    class Services,AppointmentRules,ClinicalRules,BillingRules,Audit application;
+    class Repository,Drizzle,PostgreSQL persistence;
