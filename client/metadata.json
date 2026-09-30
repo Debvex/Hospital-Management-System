@@ -1,0 +1,6 @@
+{
+  "name": "CarePulse HMS - Hospital Management System",
+  "description": "Modern Hospital Management System frontend inspired by Google app themes with high-contrast circular icons, clean architecture, and complete clinical & administrative workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

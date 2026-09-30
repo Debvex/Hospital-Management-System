@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0f1115;
+    color: #f1f5f9;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom dark scrollbar for medical tables and sidebars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Google-style subtle elevation and active states in dark mode */
+.google-card {
+  background-color: #18191e;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px -1px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.google-card:hover {
+  border-color: rgba(113, 113, 122, 0.5);
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.35);
+}
+
+/* Split Text Animation Styles */
+@keyframes splitCharReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(125%) rotateX(-20deg);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0%) rotateX(0deg);
+    filter: blur(0px);
+  }
+}
+
+@keyframes splitWordReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(110%);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0%);
+    filter: blur(0px);
+  }
+}
+
+.animate-split-char {
+  animation: splitCharReveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity, filter;
+  transform-origin: bottom center;
+}
+
+.animate-split-word {
+  animation: splitWordReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity, filter;
+  transform-origin: bottom center;
+}
+
+
