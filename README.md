@@ -169,7 +169,7 @@ The project may use Prisma instead of Drizzle if the team already knows Prisma. 
 
 ---
 
-## 8. Suggested Repository Structure
+## 8. Repository Structure
 
 The current frontend scaffold may be expanded into the following structure:
 
@@ -998,7 +998,7 @@ Set production environment variables, run migrations, deploy the application, ve
 
 ---
 
-## 20. Local Development Commands
+## 20. Development Setup Commands
 
 ### Frontend
 
