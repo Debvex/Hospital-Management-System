@@ -50,6 +50,8 @@ const KEYS = {
   AUDIT_LOGS: `${STORAGE_PREFIX}audit_logs`,
   AUTH_TOKEN: `${STORAGE_PREFIX}token`,
   CURRENT_USER: `${STORAGE_PREFIX}user`,
+  USERS: `${STORAGE_PREFIX}users`,
+  CREDENTIALS: `${STORAGE_PREFIX}credentials`,
 };
 
 function getStored<T>(key: string, fallback: T): T {
@@ -71,6 +73,7 @@ function setStored<T>(key: string, value: T): void {
 }
 
 // In-memory + persistent state
+let users: User[] = getStored(KEYS.USERS, initialUsers);
 let patients: Patient[] = getStored(KEYS.PATIENTS, initialPatients);
 let doctors: Doctor[] = getStored(KEYS.DOCTORS, initialDoctors);
 let appointments: Appointment[] = getStored(KEYS.APPOINTMENTS, initialAppointments);
@@ -78,23 +81,199 @@ let records: MedicalRecord[] = getStored(KEYS.RECORDS, initialMedicalRecords);
 let invoices: Invoice[] = getStored(KEYS.INVOICES, initialInvoices);
 let auditLogs: AuditLog[] = getStored(KEYS.AUDIT_LOGS, initialAuditLogs);
 
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  fullName: string;
+  role: UserRole;
+  contactNumber: string;
+  dateOfBirth?: string;
+  gender?: 'male' | 'female' | 'other';
+  bloodGroup?: string;
+  specialization?: string;
+  departmentId?: string;
+  departmentName?: string;
+  qualification?: string;
+  staffBadgeId?: string;
+}
+
 // Central API Service Client
 export const api = {
   // Authentication & Session
   auth: {
-    login: async (email: string, role?: UserRole): Promise<{ token: string; user: User }> => {
-      // Synthetic delay to simulate Express auth pipeline
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      
-      const user = initialUsers.find((u) => u.email.toLowerCase() === email.toLowerCase()) || {
+    register: async (payload: RegisterPayload): Promise<{ token: string; user: User; patient?: Patient; doctor?: Doctor }> => {
+      // Synthetic network delay
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      const cleanEmail = payload.email.toLowerCase().trim();
+
+      // Check if user email already exists
+      const existingUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
+      if (existingUser) {
+        throw new AppError(
+          409,
+          'CONFLICT_EMAIL_EXISTS',
+          'An account with this email address already exists. Please sign in or use another email.'
+        );
+      }
+
+      // Create new User entity
+      const newUser: User = {
         id: `user-${Date.now()}`,
-        email,
-        fullName: email.split('@')[0],
-        role: role || 'patient',
+        email: cleanEmail,
+        fullName: payload.fullName.trim(),
+        role: payload.role,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+
+      users = [newUser, ...users];
+      setStored(KEYS.USERS, users);
+
+      // Save credentials for simulated password verification
+      const credentials = getStored<Record<string, string>>(KEYS.CREDENTIALS, {
+        'administrator@example.test': 'Password@123',
+        'doctor@example.test': 'Password@123',
+        'receptionist@example.test': 'Password@123',
+        'patient@example.test': 'Password@123',
+      });
+      credentials[cleanEmail] = payload.password;
+      setStored(KEYS.CREDENTIALS, credentials);
+
+      let createdPatient: Patient | undefined;
+      let createdDoctor: Doctor | undefined;
+
+      // Automatically initialize linked Patient entity if registered as Patient
+      if (payload.role === 'patient') {
+        const nextMrnSeq = patients.length + 1;
+        createdPatient = {
+          id: `pat-${Date.now()}`,
+          userId: newUser.id,
+          mrn: `MRN-${new Date().getFullYear()}-${String(nextMrnSeq).padStart(3, '0')}`,
+          fullName: newUser.fullName,
+          dateOfBirth: payload.dateOfBirth || '1995-01-01',
+          gender: payload.gender || 'other',
+          bloodGroup: (payload.bloodGroup as any) || 'O+',
+          contactNumber: payload.contactNumber,
+          email: newUser.email,
+          address: 'Self-registered Online Portal Patient',
+          emergencyContact: {
+            name: 'Primary Contact',
+            relationship: 'Self/Family',
+            phone: payload.contactNumber,
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        patients = [createdPatient, ...patients];
+        setStored(KEYS.PATIENTS, patients);
+      }
+
+      // Automatically initialize linked Doctor entity if registered as Doctor
+      if (payload.role === 'doctor') {
+        createdDoctor = {
+          id: `doc-${Date.now()}`,
+          userId: newUser.id,
+          fullName: newUser.fullName.startsWith('Dr.') ? newUser.fullName : `Dr. ${newUser.fullName}`,
+          email: newUser.email,
+          departmentId: payload.departmentId || 'dept-1',
+          departmentName: payload.departmentName || 'General Medicine',
+          specialization: payload.specialization || 'Internal Medicine Specialist',
+          qualification: payload.qualification || 'MBBS, MD',
+          experienceYears: 6,
+          consultationFee: 140,
+          roomNumber: 'OPD Suite 105',
+          contactNumber: payload.contactNumber,
+          avatarColor: 'teal',
+          availability: [
+            {
+              id: `avail-${Date.now()}-1`,
+              doctorId: `doc-${Date.now()}`,
+              dayOfWeek: 'Monday',
+              startTime: '09:00',
+              endTime: '13:00',
+              slotDurationMinutes: 30,
+              isActive: true,
+            },
+            {
+              id: `avail-${Date.now()}-2`,
+              doctorId: `doc-${Date.now()}`,
+              dayOfWeek: 'Thursday',
+              startTime: '09:00',
+              endTime: '13:00',
+              slotDurationMinutes: 30,
+              isActive: true,
+            },
+          ],
+          isActive: true,
+        };
+
+        doctors = [createdDoctor, ...doctors];
+        setStored(KEYS.DOCTORS, doctors);
+      }
+
+      // Generate JWT session token
+      const token = `jwt_mock_${newUser.role}_${Date.now()}`;
+      setStored(KEYS.AUTH_TOKEN, token);
+      setStored(KEYS.CURRENT_USER, newUser);
+
+      // Audit log registration
+      api.auditLogs.logAction({
+        actorUserId: newUser.id,
+        actorName: newUser.fullName,
+        actorRole: newUser.role,
+        action: 'USER_REGISTER',
+        resourceType: 'auth',
+        resourceId: newUser.id,
+        metadataJson: {
+          email: newUser.email,
+          role: newUser.role,
+          linkedPatientId: createdPatient?.id,
+          linkedDoctorId: createdDoctor?.id,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      return { token, user: newUser, patient: createdPatient, doctor: createdDoctor };
+    },
+
+    login: async (email: string, role?: UserRole, password?: string): Promise<{ token: string; user: User }> => {
+      // Synthetic delay to simulate Express auth pipeline
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      
+      const cleanEmail = email.toLowerCase().trim();
+      let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+
+      // Check password if provided
+      if (password) {
+        const credentials = getStored<Record<string, string>>(KEYS.CREDENTIALS, {
+          'administrator@example.test': 'Password@123',
+          'doctor@example.test': 'Password@123',
+          'receptionist@example.test': 'Password@123',
+          'patient@example.test': 'Password@123',
+        });
+        const storedPassword = credentials[cleanEmail];
+        if (storedPassword && storedPassword !== password) {
+          throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password. Please try again.');
+        }
+      }
+
+      if (!user) {
+        // Fallback for demo users
+        user = {
+          id: `user-${Date.now()}`,
+          email: cleanEmail,
+          fullName: cleanEmail.split('@')[0],
+          role: role || 'patient',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        users = [user, ...users];
+        setStored(KEYS.USERS, users);
+      }
 
       const token = `jwt_mock_${user.role}_${Date.now()}`;
       setStored(KEYS.AUTH_TOKEN, token);
@@ -114,12 +293,45 @@ export const api = {
       return { token, user };
     },
 
+    requestPasswordReset: async (email: string): Promise<{ success: boolean; message: string }> => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      const cleanEmail = email.toLowerCase().trim();
+      const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+      if (!user) {
+        // Return friendly message without leaking user existence
+        return {
+          success: true,
+          message: 'If an account with this email exists, a password reset link has been dispatched.',
+        };
+      }
+
+      api.auditLogs.logAction({
+        actorUserId: user.id,
+        actorName: user.fullName,
+        actorRole: user.role,
+        action: 'PASSWORD_RESET_REQUESTED',
+        resourceType: 'auth',
+        resourceId: user.id,
+        metadataJson: { email: user.email, timestamp: new Date().toISOString() },
+      });
+
+      return {
+        success: true,
+        message: `Password reset instructions sent to ${cleanEmail}. (In demo mode: use Password@123)`,
+      };
+    },
+
+    getUsers: async (): Promise<User[]> => {
+      return [...users];
+    },
+
     getCurrentUser: (): User => {
       return getStored(KEYS.CURRENT_USER, initialUsers[0]);
     },
 
     logout: async () => {
       localStorage.removeItem(KEYS.AUTH_TOKEN);
+      localStorage.removeItem(KEYS.CURRENT_USER);
     },
   },
 
