@@ -27,19 +27,19 @@ import PatientModal from './components/forms/PatientModal';
 import InvoiceModal from './components/forms/InvoiceModal';
 
 function MainApp() {
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageId>('home');
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+  const [isGuestMode, setIsGuestMode] = useState<boolean>(false);
 
   // Global modal triggers
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
-  if (!isLoggedIn) {
+  if (!isAuthenticated && !isGuestMode) {
     return (
       <Suspense fallback={<PageLoadingFallback />}>
-        <LoginPage onSuccess={() => setIsLoggedIn(true)} />
+        <LoginPage onSuccess={() => setIsGuestMode(true)} />
       </Suspense>
     );
   }
