@@ -2,63 +2,60 @@ flowchart LR
     Patient[Patient]
     Doctor[Doctor]
     Receptionist[Receptionist]
-    Admin[Administrator]
+    Administrator[Administrator]
 
-    P1((1.0 User Authentication))
-    P2((2.0 Doctor and Availability Management))
-    P3((3.0 Appointment Management))
-    P4((4.0 Medical Records Management))
-    P5((5.0 Billing and Reporting))
+    P1((1.0 Authentication<br/>and User Management))
+    P2((2.0 Doctor and<br/>Availability Management))
+    P3((3.0 Appointment<br/>Management))
+    P4((4.0 Medical Records<br/>and Prescriptions))
+    P5((5.0 Billing and<br/>Reporting))
 
-    D1[(D1 User Data)]
-    D2[(D2 Doctor and Availability Data)]
-    D3[(D3 Appointment Data)]
-    D4[(D4 Medical and Billing Data)]
+    DB[(D1: PostgreSQL Database<br/>Tables: USER_ACCOUNT, role profiles,<br/>DEPARTMENT, AVAILABILITY, APPOINTMENT,<br/>MEDICAL_RECORD, PRESCRIPTION, INVOICE, AUDIT_LOG)]
 
-    Patient -->|Login credentials| P1
-    Doctor -->|Login credentials| P1
-    Receptionist -->|Login credentials| P1
-    Admin -->|Login credentials| P1
-    P1 <--> D1
-    P1 -->|Session token and access result| Patient
-    P1 -->|Session token and access result| Doctor
-    P1 -->|Session token and access result| Receptionist
-    P1 -->|Session token and access result| Admin
+    Patient -->|Credentials, profile data| P1
+    P1 -->|Token, session result, access result| Patient
+    Doctor -->|Credentials, availability data| P1
+    P1 -->|Token, access result| Doctor
+    Receptionist -->|Credentials, patient/staff data| P1
+    P1 -->|Token, access result| Receptionist
+    Administrator -->|Credentials, staff-management data| P1
+    P1 -->|Token, access result| Administrator
 
+    Doctor -->|Availability rules| P2
+    Administrator -->|Doctor and department data| P2
     Patient -->|Doctor search request| P2
-    Doctor -->|Availability information| P2
-    Admin -->|Doctor configuration| P2
-    P2 <--> D2
-    P2 -->|Doctor list and available slots| Patient
-    P2 -->|Doctor list and available slots| Receptionist
+    Receptionist -->|Doctor search request| P2
+    P2 -->|Available doctors and slots| Patient
+    P2 -->|Availability result| Receptionist
 
     Patient -->|Booking or cancellation request| P3
-    Receptionist -->|Appointment scheduling request| P3
+    Receptionist -->|Patient appointment request| P3
     Doctor -->|Appointment status update| P3
-    P3 <--> D3
-    P3 -->|Appointment confirmation and status| Patient
-    P3 -->|Appointment schedule| Doctor
-    P3 -->|Appointment schedule| Receptionist
+    P3 -->|Appointment status and schedule| Patient
+    P3 -->|Schedule and booking result| Receptionist
+    P3 -->|Assigned appointment list| Doctor
 
-    Doctor -->|Diagnosis, notes, and prescriptions| P4
-    Patient -->|Medical-history request| P4
-    P4 <--> D3
-    P4 <--> D4
-    P4 -->|Medical records and prescriptions| Patient
-    P4 -->|Patient history| Doctor
+    Doctor -->|Diagnosis, notes, prescriptions| P4
+    Patient -->|Own-record query| P4
+    P4 -->|Permitted records and prescriptions| Patient
+    P4 -->|Record confirmation| Doctor
 
-    Receptionist -->|Invoice and payment information| P5
-    Patient -->|Invoice request| P5
-    Admin -->|Report request| P5
-    P5 <--> D3
-    P5 <--> D4
-    P5 -->|Invoice and billing status| Patient
-    P5 -->|Billing result| Receptionist
-    P5 -->|Operational report| Admin
+    Receptionist -->|Invoice and payment data| P5
+    Administrator -->|Report request| P5
+    Patient -->|Invoice query| P5
+    P5 -->|Invoice and payment status| Patient
+    P5 -->|Operational reports| Receptionist
+    P5 -->|Dashboard and audit summary| Administrator
 
-    classDef external fill:#E8F1FB,stroke:#1F4E79,stroke-width:1.5px,color:#102A43;
-    classDef process fill:#FFF2CC,stroke:#BF9000,stroke-width:1.5px,color:#4A3B00;
-    classDef store fill:#F4CCCC,stroke:#990000,stroke-width:1.5px,color:#4A0000;
-    class Patient,Doctor,Receptionist,Admin external;
+    P1 <--> DB
+    P2 <--> DB
+    P3 <--> DB
+    P4 <--> DB
+    P5 <--> DB
+
+    classDef external fill:#e7f7f5,stroke:#197774,stroke-width:1.5px,color:#16484e;
+    classDef process fill:#eef0ff,stroke:#6651a8,stroke-width:1.5px,color:#30265f;
+    classDef datastore fill:#ffe7e7,stroke:#aa5a5a,stroke-width:1.5px,color:#672e35;
+    class Patient,Doctor,Receptionist,Administrator external;
     class P1,P2,P3,P4,P5 process;
-    class D1,D2,D3,D4 store;
+    class DB datastore;

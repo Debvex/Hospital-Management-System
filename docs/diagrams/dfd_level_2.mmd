@@ -1,100 +1,158 @@
-flowchart LR
+flowchart TB
     Patient[Patient]
     Doctor[Doctor]
     Receptionist[Receptionist]
-    Admin[Administrator]
+    Administrator[Administrator]
 
-    D1[(D1 User Data)]
-    D2[(D2 Doctor and Availability Data)]
-    D3[(D3 Appointment Data)]
-    D4[(D4 Medical and Billing Data)]
+    subgraph HMS[Hospital Management System — Level 2 Decomposition]
+        subgraph AUTH[1.0 Authentication and User Management]
+            A11((1.1 Validate Registration))
+            A12((1.2 Hash Password))
+            A13((1.3 Verify Credentials))
+            A14((1.4 Generate JWT))
+            A15((1.5 Check Role Permissions))
+            A16((1.6 Manage Role Profile))
+        end
 
-    subgraph S1[1.0 User Authentication]
-        P11((1.1 Receive Credentials))
-        P12((1.2 Validate User))
-        P13((1.3 Generate Session Token))
-        P14((1.4 Return Access Result))
-        P11 --> P12 --> P13 --> P14
+        subgraph AVAIL[2.0 Doctor and Availability Management]
+            B11((2.1 Maintain Department))
+            B12((2.2 Maintain Doctor Profile))
+            B13((2.3 Define Availability))
+            B14((2.4 Validate Time Range))
+            B15((2.5 Publish Open Slots))
+        end
+
+        subgraph APPT[3.0 Appointment Management]
+            C11((3.1 Receive Booking Request))
+            C12((3.2 Validate Patient and Doctor))
+            C13((3.3 Check Slot Availability))
+            C14((3.4 Create Appointment))
+            C15((3.5 Prevent Duplicate Booking))
+            C16((3.6 Update Status))
+            C17((3.7 Cancel or Reschedule))
+        end
+
+        subgraph MED[4.0 Medical Records and Prescriptions]
+            D11((4.1 Verify Doctor Assignment))
+            D12((4.2 Open Patient Context))
+            D13((4.3 Save Diagnosis and Notes))
+            D14((4.4 Create Prescription))
+            D15((4.5 Add Prescription Items))
+            D16((4.6 Publish Permitted History))
+        end
+
+        subgraph BILL[5.0 Billing and Reporting]
+            E11((5.1 Read Consultation Fee))
+            E12((5.2 Add Approved Charges))
+            E13((5.3 Calculate Invoice Total))
+            E14((5.4 Record Payment Status))
+            E15((5.5 Produce Operational Report))
+            E16((5.6 Write Audit Event))
+        end
     end
 
-    subgraph S2[2.0 Doctor and Availability Management]
-        P21((2.1 Receive Search or Profile Request))
-        P22((2.2 Manage Doctor Information))
-        P23((2.3 Manage Availability))
-        P24((2.4 Return Doctors and Slots))
-        P21 --> P22 --> P23 --> P24
-    end
+    DB[(D1: PostgreSQL Database<br/>Tables: USER_ACCOUNT, role profiles,<br/>DEPARTMENT, DOCTOR_AVAILABILITY,<br/>APPOINTMENT, MEDICAL_RECORD,<br/>PRESCRIPTION, PRESCRIPTION_ITEM,<br/>INVOICE, INVOICE_ITEM, AUDIT_LOG)]
 
-    subgraph S3[3.0 Appointment Management]
-        P31((3.1 Receive Appointment Request))
-        P32((3.2 Check Availability))
-        P33((3.3 Create or Update Appointment))
-        P34((3.4 Return Appointment Status))
-        P31 --> P32 --> P33 --> P34
-    end
+    Patient -->|Registration data| A11
+    A11 -->|Valid registration| A12
+    A12 -->|Password hash| A16
+    Patient -->|Login credentials| A13
+    Doctor -->|Login credentials| A13
+    Receptionist -->|Login credentials| A13
+    Administrator -->|Login credentials| A13
+    A13 -->|Valid identity| A14
+    A14 -->|Signed JWT| A15
+    A15 -->|Access result| Patient
+    A15 -->|Access result| Doctor
+    A15 -->|Access result| Receptionist
+    A15 -->|Access result| Administrator
+    A15 --> A16
+    A16 -->|Profile result| Patient
+    A16 -->|Profile result| Doctor
+    A16 -->|Profile result| Receptionist
+    A16 -->|Profile result| Administrator
 
-    subgraph S4[4.0 Medical Records Management]
-        P41((4.1 Receive Medical Information Request))
-        P42((4.2 Validate Appointment and Access))
-        P43((4.3 Store or Retrieve Medical Record))
-        P44((4.4 Return Medical Information))
-        P41 --> P42 --> P43 --> P44
-    end
+    Administrator -->|Department data| B11
+    Administrator -->|Doctor profile data| B12
+    Doctor -->|Availability data| B13
+    B13 --> B14
+    B14 --> B15
+    Patient -->|Doctor search| B15
+    Receptionist -->|Doctor search| B15
+    B15 -->|Open slots| Patient
+    B15 -->|Open slots| Receptionist
 
-    subgraph S5[5.0 Billing and Reporting]
-        P51((5.1 Receive Billing or Report Request))
-        P52((5.2 Prepare Invoice Information))
-        P53((5.3 Store or Retrieve Billing Data))
-        P54((5.4 Return Billing or Report Result))
-        P51 --> P52 --> P53 --> P54
-    end
+    Patient -->|Booking request| C11
+    Receptionist -->|Booking request| C11
+    C11 --> C12
+    C12 --> C13
+    C13 -->|Available slot| C14
+    C13 -->|Slot conflict| C15
+    C14 -->|Appointment confirmation| Patient
+    C14 -->|Appointment confirmation| Receptionist
+    Doctor -->|Completion or no-show| C16
+    Patient -->|Cancellation| C17
+    Receptionist -->|Reschedule| C17
+    C16 -->|Updated status| Doctor
+    C17 -->|Updated appointment| Patient
+    C17 -->|Updated appointment| Receptionist
 
-    Patient -->|Login credentials| P11
-    Doctor -->|Login credentials| P11
-    Receptionist -->|Login credentials| P11
-    Admin -->|Login credentials| P11
-    P12 <--> D1
-    P14 -->|Session token and access result| Patient
-    P14 -->|Session token and access result| Doctor
-    P14 -->|Session token and access result| Receptionist
-    P14 -->|Session token and access result| Admin
+    Doctor -->|Assigned appointment| D11
+    D11 --> D12
+    D12 --> D13
+    D13 --> D14
+    D14 --> D15
+    D15 -->|Prescription confirmation| Doctor
+    Patient -->|Own history request| D16
+    Doctor -->|Authorized history request| D16
+    D16 -->|Permitted history| Patient
+    D16 -->|Permitted history| Doctor
 
-    Patient -->|Doctor search request| P21
-    Doctor -->|Profile and availability information| P21
-    Admin -->|Doctor configuration| P21
-    P22 <--> D1
-    P23 <--> D2
-    P24 -->|Doctor list and available slots| Patient
-    P24 -->|Doctor list and available slots| Receptionist
+    Receptionist -->|Appointment charges| E11
+    E11 --> E12
+    E12 --> E13
+    E13 --> E14
+    Receptionist -->|Payment update| E14
+    Patient -->|Invoice request| E14
+    E14 -->|Invoice status| Patient
+    Administrator -->|Report request| E15
+    E15 -->|Operational report| Administrator
+    E15 --> E16
+    E16 -->|Audit event| Administrator
 
-    Patient -->|Booking or cancellation request| P31
-    Receptionist -->|Appointment scheduling request| P31
-    Doctor -->|Appointment status update| P31
-    P32 <--> D2
-    P33 <--> D3
-    P34 -->|Appointment confirmation and status| Patient
-    P34 -->|Appointment schedule| Doctor
-    P34 -->|Appointment schedule| Receptionist
+    A11 <--> DB
+    A12 <--> DB
+    A13 <--> DB
+    A14 <--> DB
+    A15 <--> DB
+    A16 <--> DB
+    B11 <--> DB
+    B12 <--> DB
+    B13 <--> DB
+    B14 <--> DB
+    B15 <--> DB
+    C12 <--> DB
+    C13 <--> DB
+    C14 <--> DB
+    C15 <--> DB
+    C16 <--> DB
+    C17 <--> DB
+    D11 <--> DB
+    D12 <--> DB
+    D13 <--> DB
+    D14 <--> DB
+    D15 <--> DB
+    D16 <--> DB
+    E11 <--> DB
+    E12 <--> DB
+    E13 <--> DB
+    E14 <--> DB
+    E15 <--> DB
+    E16 <--> DB
 
-    Doctor -->|Diagnosis, notes, and prescriptions| P41
-    Patient -->|Medical-history request| P41
-    P42 <--> D3
-    P43 <--> D4
-    P44 -->|Medical records and prescriptions| Patient
-    P44 -->|Patient history| Doctor
-
-    Receptionist -->|Invoice and payment information| P51
-    Patient -->|Invoice request| P51
-    Admin -->|Report request| P51
-    P52 <--> D3
-    P53 <--> D4
-    P54 -->|Invoice and billing status| Patient
-    P54 -->|Billing result| Receptionist
-    P54 -->|Operational report| Admin
-
-    classDef external fill:#E8F1FB,stroke:#1F4E79,stroke-width:1.5px,color:#102A43;
-    classDef process fill:#FFF2CC,stroke:#BF9000,stroke-width:1.5px,color:#4A3B00;
-    classDef store fill:#F4CCCC,stroke:#990000,stroke-width:1.5px,color:#4A0000;
-    class Patient,Doctor,Receptionist,Admin external;
-    class P11,P12,P13,P14,P21,P22,P23,P24,P31,P32,P33,P34,P41,P42,P43,P44,P51,P52,P53,P54 process;
-    class D1,D2,D3,D4 store;
+    classDef external fill:#e7f7f5,stroke:#197774,stroke-width:1.5px,color:#16484e;
+    classDef process fill:#eef0ff,stroke:#6651a8,stroke-width:1.5px,color:#30265f;
+    classDef datastore fill:#ffe7e7,stroke:#aa5a5a,stroke-width:1.5px,color:#672e35;
+    class Patient,Doctor,Receptionist,Administrator external;
+    class A11,A12,A13,A14,A15,A16,B11,B12,B13,B14,B15,C11,C12,C13,C14,C15,C16,C17,D11,D12,D13,D14,D15,D16,E11,E12,E13,E14,E15,E16 process;
+    class DB datastore;
