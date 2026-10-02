@@ -21,7 +21,7 @@ export const Shell: React.FC<ShellProps> = ({
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-[#181a20] via-[#14161a] to-[#111317] text-zinc-100">
+    <div className="flex h-screen overflow-hidden bg-linear-to-br from-[#181a20] via-[#14161a] to-[#111317] text-zinc-100">
       {/* Sidebar navigation drawer */}
       <Sidebar
         currentPage={currentPage}

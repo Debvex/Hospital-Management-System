@@ -91,18 +91,12 @@ export const checkPermission = (
  */
 export const isTokenValid = (token: string | null): boolean => {
   if (!token) return false;
-  // If simulated jwt
-  if (token.startsWith('jwt_mock_')) return true;
-  
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) return true; // Accept simulated format
+    if (parts.length !== 3) return false;
     const payload = JSON.parse(atob(parts[1]));
-    if (payload.exp && Date.now() >= payload.exp * 1000) {
-      return false;
-    }
-    return true;
+    return typeof payload.exp === 'number' && Date.now() < payload.exp * 1000;
   } catch {
-    return true;
+    return false;
   }
 };

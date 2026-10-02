@@ -179,7 +179,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
           >
             {doctors.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.fullName} — {d.departmentName} (${d.consultationFee})
+                {d.fullName} — {d.departmentName} (₹{d.consultationFee})
               </option>
             ))}
           </Select>
@@ -206,7 +206,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
               </span>
             </div>
             <span className="font-mono font-bold text-blue-300">
-              Fee: ${selectedDoctor.consultationFee}
+              Fee: ₹{selectedDoctor.consultationFee}
             </span>
           </div>
         )}

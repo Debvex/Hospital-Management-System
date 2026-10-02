@@ -10,12 +10,10 @@ import {
   User,
   LogOut,
   UserPlus,
-  Shield,
 } from 'lucide-react';
 import GoogleIconCircle from '../ui/GoogleIconCircle';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
-import { RoleSwitcher } from './RoleSwitcher';
 import { SplitText } from '../ui/SplitText';
 
 interface TopbarProps {
@@ -59,6 +57,9 @@ export const Topbar: React.FC<TopbarProps> = ({
       color: 'yellow' as const,
     },
   ];
+  const visibleNotifications = notifications.filter((notification) =>
+    notification.id !== 3 || currentRole === 'administrator' || currentRole === 'receptionist',
+  );
 
   return (
     <header className="sticky top-0 z-20 bg-[#14161a]/95 backdrop-blur-md border-b border-zinc-800 px-4 sm:px-6 py-3">
@@ -86,24 +87,21 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
         </div>
 
-        {/* Center / Right Zone: Search, Role Switcher, Notifications, Action Button */}
+        {/* Center / Right Zone: Notifications and account actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Quick role switcher for lab evaluations */}
-          <div className="hidden lg:flex items-center shrink-0">
-            <RoleSwitcher compact />
-          </div>
-
           {/* Quick Action Button: Book Appointment */}
-          <Button
-            variant="google"
-            size="sm"
-            onClick={onOpenBookAppointment}
-            className="font-bold flex items-center h-9 shrink-0"
-          >
-            <Plus className="w-4 h-4 text-black stroke-[2.5]" />
-            <span className="hidden sm:inline">Book Appointment</span>
-            <span className="sm:hidden">Book</span>
-          </Button>
+          {currentRole !== 'doctor' && (
+            <Button
+              variant="google"
+              size="sm"
+              onClick={onOpenBookAppointment}
+              className="font-bold flex items-center h-9 shrink-0"
+            >
+              <Plus className="w-4 h-4 text-black stroke-[2.5]" />
+              <span className="hidden sm:inline">Book Appointment</span>
+              <span className="sm:hidden">Book</span>
+            </Button>
+          )}
 
           {/* Notifications Popover */}
           <div className="relative flex items-center shrink-0">
@@ -117,7 +115,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                 color="yellow"
                 size="sm"
                 interactive
-                badge={notifications.length}
+                badge={visibleNotifications.length}
               />
             </button>
 
@@ -136,7 +134,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    {notifications.map((n) => (
+                    {visibleNotifications.map((n) => (
                       <div
                         key={n.id}
                         className="flex items-start gap-3 p-2.5 rounded-2xl hover:bg-zinc-800/60 transition-colors"
@@ -170,7 +168,7 @@ export const Topbar: React.FC<TopbarProps> = ({
                 {currentUser.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
               </div>
               <div className="hidden sm:flex flex-col justify-center leading-none pr-0.5">
-                <span className="text-xs font-bold text-zinc-100 truncate max-w-[110px]">
+                <span className="text-xs font-bold text-zinc-100 truncate max-w-27.5">
                   {currentUser.fullName}
                 </span>
                 <span className="text-[10px] text-zinc-400 font-medium capitalize mt-0.5">
@@ -207,23 +205,23 @@ export const Topbar: React.FC<TopbarProps> = ({
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
-                        logout();
+                        logout('signup');
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <UserPlus className="w-4 h-4 text-emerald-400" />
-                      <span>Register New Account</span>
+                      <span>Create Patient Account</span>
                     </button>
 
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
-                        logout();
+                        logout('signin');
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 rounded-xl transition-colors cursor-pointer text-left"
                     >
                       <LogOut className="w-4 h-4 text-rose-400" />
-                      <span>Sign Out / Switch User</span>
+                      <span>Sign Out / Switch Account</span>
                     </button>
                   </div>
                 </div>

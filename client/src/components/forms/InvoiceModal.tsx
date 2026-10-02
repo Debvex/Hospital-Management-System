@@ -99,7 +99,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         paymentMethod: paymentStatus === 'paid' ? paymentMethod : undefined,
       });
 
-      success('Invoice Generated', `Created ${inv.invoiceNumber} for $${inv.totalAmount}`);
+      success('Invoice Generated', `Created ${inv.invoiceNumber} for ₹${inv.totalAmount}`);
       onSuccess(inv);
       onClose();
     } catch (err: any) {
@@ -177,13 +177,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   <Input
                     type="number"
                     min="0"
-                    placeholder="Price ($)"
+                    placeholder="Price (₹)"
                     value={item.unitPrice}
                     onChange={(e) => updateItem(idx, 'unitPrice', Number(e.target.value))}
                   />
                 </div>
                 <div className="w-20 text-right font-mono font-bold text-xs text-zinc-100 tabular-nums">
-                  ${item.lineTotal}
+                  ₹{item.lineTotal}
                 </div>
                 {items.length > 1 && (
                   <button
@@ -202,10 +202,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <div className="pt-3 border-t border-zinc-800 flex flex-col items-end gap-1.5 text-xs text-zinc-400">
             <div className="flex items-center gap-4">
               <span>Subtotal:</span>
-              <span className="font-mono font-bold text-zinc-200 tabular-nums">${subtotal}</span>
+              <span className="font-mono font-bold text-zinc-200 tabular-nums">₹{subtotal}</span>
             </div>
             <div className="flex items-center gap-4">
-              <span>Discount / Waiver ($):</span>
+              <span>Discount / Waiver (₹):</span>
               <input
                 type="number"
                 min="0"
@@ -217,7 +217,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <div className="flex items-center gap-4 text-sm font-extrabold text-zinc-100 pt-1 border-t border-zinc-800">
               <span>Total Payable:</span>
               <span className="font-mono tabular-nums text-base text-blue-400">
-                ${totalAmount}
+                ₹{totalAmount}
               </span>
             </div>
           </div>

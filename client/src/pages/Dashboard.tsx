@@ -187,7 +187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
           <div>
             <span className="text-2xl sm:text-3xl font-extrabold text-zinc-100 font-mono tabular-nums block">
-              ${summary?.totalRevenueToday ?? '570'}
+              ₹{summary?.totalRevenueToday ?? '570'}
             </span>
             <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1 font-medium">
               <span className="text-rose-400 font-semibold">
@@ -317,7 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
 
                   <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-md shrink-0">
-                    ${doc.consultationFee}
+                    ₹{doc.consultationFee}
                   </span>
                 </div>
               ))}

@@ -8,8 +8,11 @@ import { Button } from '../components/ui/Button';
 import GoogleIconCircle from '../components/ui/GoogleIconCircle';
 import { Calendar, Plus, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
+import { useAuth } from '../contexts/AuthContext';
 
 export const AppointmentsPage: React.FC = () => {
+  const { currentRole } = useAuth();
+  const canBookAppointments = currentRole !== 'doctor';
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -66,15 +69,17 @@ export const AppointmentsPage: React.FC = () => {
             <span className="hidden sm:inline">Refresh</span>
           </Button>
 
-          <Button
-            variant="google"
-            size="sm"
-            onClick={() => setIsBookingModalOpen(true)}
-            className="font-bold"
-          >
-            <Plus className="w-4 h-4 text-black stroke-[2.5]" />
-            <span>Book Appointment</span>
-          </Button>
+          {canBookAppointments && (
+            <Button
+              variant="google"
+              size="sm"
+              onClick={() => setIsBookingModalOpen(true)}
+              className="font-bold"
+            >
+              <Plus className="w-4 h-4 text-black stroke-[2.5]" />
+              <span>Book Appointment</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -92,14 +97,16 @@ export const AppointmentsPage: React.FC = () => {
           </div>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setIsBookingModalOpen(true)}
-          className="text-xs font-bold text-zinc-100 shrink-0 self-start sm:self-center"
-        >
-          Test Slot Booking
-        </Button>
+        {canBookAppointments && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsBookingModalOpen(true)}
+            className="text-xs font-bold text-zinc-100 shrink-0 self-start sm:self-center"
+          >
+            Test Slot Booking
+          </Button>
+        )}
       </div>
 
       {/* Table of Appointments */}
@@ -111,11 +118,13 @@ export const AppointmentsPage: React.FC = () => {
       />
 
       {/* Booking Modal */}
-      <AppointmentBookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-        onSuccess={() => loadAppointments()}
-      />
+      {canBookAppointments && (
+        <AppointmentBookingModal
+          isOpen={isBookingModalOpen}
+          onClose={() => setIsBookingModalOpen(false)}
+          onSuccess={() => loadAppointments()}
+        />
+      )}
 
       {/* Doctor Clinical Record & Rx Modal */}
       {selectedAppointmentForRecord && (

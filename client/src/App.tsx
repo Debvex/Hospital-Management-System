@@ -3,11 +3,12 @@
  * Clean Architecture Frontend with Google App Material 3 theme & high-contrast circular icons.
  */
 
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
 import Shell from './components/layout/Shell';
 import { PageId } from './components/layout/Sidebar';
+import { canAccessPage } from './lib/permissions';
 import PageLoadingFallback from './components/ui/PageLoadingFallback';
 
 // Lazy Loaded Pages
@@ -27,19 +28,26 @@ import PatientModal from './components/forms/PatientModal';
 import InvoiceModal from './components/forms/InvoiceModal';
 
 function MainApp() {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, currentRole, isAuthenticated, authScreenMode } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageId>('home');
-  const [isGuestMode, setIsGuestMode] = useState<boolean>(false);
 
   // Global modal triggers
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
-  if (!isAuthenticated && !isGuestMode) {
+  useEffect(() => {
+    if (!canAccessPage(currentRole, currentPage)) setCurrentPage('home');
+  }, [currentPage, currentRole]);
+
+  const canBookAppointments = ['administrator', 'receptionist', 'patient'].includes(currentRole);
+  const canRegisterPatients = ['administrator', 'receptionist'].includes(currentRole);
+  const visiblePage = canAccessPage(currentRole, currentPage) ? currentPage : 'home';
+
+  if (!isAuthenticated) {
     return (
       <Suspense fallback={<PageLoadingFallback />}>
-        <LoginPage onSuccess={() => setIsGuestMode(true)} />
+        <LoginPage initialMode={authScreenMode} />
       </Suspense>
     );
   }
@@ -48,7 +56,7 @@ function MainApp() {
     home: 'Hospital Management System (HMS)',
     dashboard: 'Clinical & Operational Dashboard',
     appointments: 'Appointments & Consultations',
-    patients: 'Patient Directory & Records',
+    patients: currentRole === 'patient' ? 'My Patient Profile' : 'Patient Directory & Records',
     doctors: 'Medical Specialists & Schedule',
     'medical-records': 'Clinical Notes & Prescriptions',
     billing: 'Billing & Hospital Invoices',
@@ -57,43 +65,43 @@ function MainApp() {
 
   return (
     <Shell
-      currentPage={currentPage}
+      currentPage={visiblePage}
       onSelectPage={(page) => setCurrentPage(page)}
-      pageTitle={pageTitles[currentPage]}
+      pageTitle={pageTitles[visiblePage]}
     >
       <Suspense fallback={<PageLoadingFallback />}>
-        {currentPage === 'home' && (
+        {visiblePage === 'home' && (
           <HomePage
             onNavigate={(page) => setCurrentPage(page)}
-            onOpenBooking={() => setIsBookingOpen(true)}
+            onOpenBooking={() => canBookAppointments && setIsBookingOpen(true)}
           />
         )}
 
-        {currentPage === 'dashboard' && (
+        {visiblePage === 'dashboard' && (
           <Dashboard
             onNavigate={(page) => setCurrentPage(page)}
-            onOpenBooking={() => setIsBookingOpen(true)}
-            onOpenPatientModal={() => setIsPatientModalOpen(true)}
-            onOpenInvoiceModal={() => setIsInvoiceModalOpen(true)}
+            onOpenBooking={() => canBookAppointments && setIsBookingOpen(true)}
+            onOpenPatientModal={() => canRegisterPatients && setIsPatientModalOpen(true)}
+            onOpenInvoiceModal={() => canRegisterPatients && setIsInvoiceModalOpen(true)}
           />
         )}
 
-        {currentPage === 'appointments' && <AppointmentsPage />}
+        {visiblePage === 'appointments' && <AppointmentsPage />}
 
-        {currentPage === 'patients' && <PatientsPage />}
+        {visiblePage === 'patients' && <PatientsPage />}
 
-        {currentPage === 'doctors' && <DoctorsPage />}
+        {visiblePage === 'doctors' && <DoctorsPage />}
 
-        {currentPage === 'medical-records' && <MedicalRecordsPage />}
+        {visiblePage === 'medical-records' && <MedicalRecordsPage />}
 
-        {currentPage === 'billing' && <BillingPage />}
+        {visiblePage === 'billing' && <BillingPage />}
 
-        {currentPage === 'settings' && <SettingsPage />}
+        {visiblePage === 'settings' && <SettingsPage />}
       </Suspense>
 
       {/* Global Quick Action Modals */}
       <AppointmentBookingModal
-        isOpen={isBookingOpen}
+        isOpen={isBookingOpen && canBookAppointments}
         onClose={() => setIsBookingOpen(false)}
         onSuccess={() => {
           setIsBookingOpen(false);
@@ -102,7 +110,7 @@ function MainApp() {
       />
 
       <PatientModal
-        isOpen={isPatientModalOpen}
+        isOpen={isPatientModalOpen && canRegisterPatients}
         onClose={() => setIsPatientModalOpen(false)}
         onSuccess={() => {
           setIsPatientModalOpen(false);
@@ -111,7 +119,7 @@ function MainApp() {
       />
 
       <InvoiceModal
-        isOpen={isInvoiceModalOpen}
+        isOpen={isInvoiceModalOpen && canRegisterPatients}
         onClose={() => setIsInvoiceModalOpen(false)}
         onSuccess={() => {
           setIsInvoiceModalOpen(false);

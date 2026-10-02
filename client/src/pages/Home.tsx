@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { canAccessPage } from '../lib/permissions';
 import { PageId } from '../components/layout/Sidebar';
 import GoogleIconCircle from '../components/ui/GoogleIconCircle';
 import { Button } from '../components/ui/Button';
@@ -30,6 +32,7 @@ interface HomeProps {
 }
 
 export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => {
+  const { currentRole } = useAuth();
   const [animKey, setAnimKey] = useState(0);
 
   const modules = [
@@ -162,8 +165,8 @@ export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => 
   return (
     <div className="relative text-zinc-100 pb-12 space-y-10">
       {/* Decorative ambient lighting for the page */}
-      <div className="absolute -top-10 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/2 -left-10 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute -top-10 right-0 w-125 h-125 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute top-1/2 -left-10 w-112.5 h-112.5 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
 
       {/* Hero Section with Reuters hospital image background - 100% width, 50% page height just below navbar */}
       <section className="relative w-full min-h-[50vh] flex flex-col justify-center overflow-hidden py-12 sm:py-16 px-4 sm:px-6 lg:px-8 border-b border-zinc-800/60 bg-[#121418]">
@@ -180,8 +183,8 @@ export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => 
             style={{ opacity: 0.7 }}
           />
           {/* Subtle gradient overlays for text contrast and blending into the page */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0d0f12]/92 via-[#0d0f12]/75 to-[#0d0f12]/45" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#111317] via-transparent to-black/30" />
+          <div className="absolute inset-0 bg-linear-to-r from-[#0d0f12]/92 via-[#0d0f12]/75 to-[#0d0f12]/45" />
+          <div className="absolute inset-0 bg-linear-to-t from-[#111317] via-transparent to-black/30" />
         </div>
 
         {/* Hero Section Content on top of the image */}
@@ -227,18 +230,20 @@ export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => 
               className="flex flex-wrap items-center gap-3 pt-2 animate-split-word"
               style={{ animationDelay: '0.85s' }}
             >
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => onNavigate('dashboard')}
-                className="gap-2 shadow-lg shadow-blue-900/40"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Open Operations Dashboard</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
+              {canAccessPage(currentRole, 'dashboard') && (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => onNavigate('dashboard')}
+                  className="gap-2 shadow-lg shadow-blue-900/40"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Open Operations Dashboard</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              )}
 
-              <Button
+              {currentRole !== 'doctor' && <Button
                 variant="outline"
                 size="lg"
                 onClick={onOpenBooking}
@@ -246,9 +251,9 @@ export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => 
               >
                 <Calendar className="w-4 h-4 text-amber-400" />
                 <span>Book Appointment</span>
-              </Button>
+              </Button>}
 
-              <Button
+              {canAccessPage(currentRole, 'doctors') && <Button
                 variant="outline"
                 size="lg"
                 onClick={() => onNavigate('doctors')}
@@ -256,7 +261,7 @@ export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => 
               >
                 <Stethoscope className="w-4 h-4 text-purple-400" />
                 <span>View Specialists</span>
-              </Button>
+              </Button>}
             </div>
           </div>
 
@@ -307,7 +312,7 @@ export const HomePage: React.FC<HomeProps> = ({ onNavigate, onOpenBooking }) => 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {modules.map((mod) => (
+          {modules.filter((mod) => canAccessPage(currentRole, mod.id)).map((mod) => (
             <div
               key={mod.id}
               onClick={() => onNavigate(mod.id)}

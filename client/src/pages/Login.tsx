@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
@@ -22,11 +22,11 @@ import {
   AlertCircle,
   HelpCircle,
   Sparkles,
-  ArrowRight,
   Shield,
   FileText,
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { DEPARTMENTS } from '../lib/constants';
 import { useToast } from '../components/ui/Toast';
 import {
   checkPasswordStrength,
@@ -38,20 +38,33 @@ import { SplitText } from '../components/ui/SplitText';
 import { api } from '../lib/api';
 
 interface LoginProps {
-  onSuccess: () => void;
   initialMode?: 'signin' | 'signup';
 }
 
-export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'signin' }) => {
+export const LoginPage: React.FC<LoginProps> = ({ initialMode = 'signin' }) => {
   const { login, register } = useAuth();
   const { success, error, info } = useToast();
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [isLoading, setIsLoading] = useState(false);
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>(DEPARTMENTS);
+
+  useEffect(() => {
+    api.departments.list().then((activeDepartments) => {
+      if (!activeDepartments.length) return;
+      setDepartments(activeDepartments);
+      setRegisterData((current) => ({
+        ...current,
+        departmentId: activeDepartments.some((department) => department.id === current.departmentId)
+          ? current.departmentId
+          : activeDepartments[0].id,
+      }));
+    }).catch(() => undefined);
+  }, []);
 
   // Sign In State
-  const [loginEmail, setLoginEmail] = useState('administrator@example.test');
-  const [loginPassword, setLoginPassword] = useState('Password@123');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
@@ -102,9 +115,8 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
 
     setIsLoading(true);
     try {
-      await login(loginEmail, undefined, loginPassword);
+      await login(loginEmail, loginPassword);
       success('Authenticated Successfully', `Welcome to CarePulse HMS`);
-      onSuccess();
     } catch (err: any) {
       error('Authentication Failed', err.message || 'Invalid credentials');
     } finally {
@@ -126,7 +138,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
 
     setIsLoading(true);
     try {
-      await register({
+      const result = await register({
         fullName: registerData.fullName,
         email: registerData.email,
         password: registerData.password,
@@ -137,39 +149,19 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
         bloodGroup: registerData.bloodGroup,
         specialization: registerData.specialization,
         departmentId: registerData.departmentId,
-        departmentName:
-          registerData.departmentId === 'dept-1'
-            ? 'Cardiology'
-            : registerData.departmentId === 'dept-2'
-            ? 'Neurology'
-            : 'General Medicine',
+        departmentName: departments.find((department) => department.id === registerData.departmentId)?.name,
         qualification: registerData.qualification,
         staffBadgeId: registerData.staffBadgeId,
       });
 
-      success(
-        'Account Registered!',
-        `Welcome ${registerData.fullName}, your ${registerData.role.toUpperCase()} profile is active.`
-      );
-      onSuccess();
+      if (result.status === 'pending_approval') {
+        info('Approval Required', result.message);
+        setMode('signin');
+      } else {
+        success('Account Registered!', `Welcome ${registerData.fullName}, your patient account is active.`);
+      }
     } catch (err: any) {
       error('Registration Error', err.message || 'Could not register user account.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Quick 1-Click Demo Login
-  const handleQuickDemoLogin = async (demoEmail: string, role: UserRole) => {
-    setLoginEmail(demoEmail);
-    setLoginPassword('Password@123');
-    setIsLoading(true);
-    try {
-      await login(demoEmail, role, 'Password@123');
-      success('Logged In', `Authenticated as ${role.toUpperCase()} profile.`);
-      onSuccess();
-    } catch (err: any) {
-      error('Demo Login Failed', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -362,7 +354,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
                     />
                     <span>Remember this device</span>
                   </label>
-                  <span className="text-[11px] text-zinc-500 font-mono">Demo: Password@123</span>
+                  <span className="text-[11px] text-zinc-500">Use your account credentials</span>
                 </div>
 
                 <Button
@@ -377,88 +369,6 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
                 </Button>
               </form>
 
-              {/* 1-Click Demo Accounts for Rapid Evaluation */}
-              <div className="pt-4 border-t border-zinc-800/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    1-Click Examiner Demo Accounts
-                  </span>
-                  <span className="text-[10px] text-emerald-400 font-semibold font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    Instant Switch
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickDemoLogin('administrator@example.test', 'administrator')
-                    }
-                    className="p-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/90 hover:border-zinc-700 transition-all flex items-center gap-2.5 text-left cursor-pointer group"
-                  >
-                    <GoogleIconCircle icon={ShieldCheck} color="purple" size="xs" />
-                    <div className="min-w-0">
-                      <span className="font-bold text-zinc-100 block leading-tight group-hover:text-purple-300">
-                        Admin
-                      </span>
-                      <span className="text-[10px] text-zinc-400 truncate block">
-                        Full Operations
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickDemoLogin('doctor@example.test', 'doctor')}
-                    className="p-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/90 hover:border-zinc-700 transition-all flex items-center gap-2.5 text-left cursor-pointer group"
-                  >
-                    <GoogleIconCircle icon={Stethoscope} color="blue" size="xs" />
-                    <div className="min-w-0">
-                      <span className="font-bold text-zinc-100 block leading-tight group-hover:text-blue-300">
-                        Doctor
-                      </span>
-                      <span className="text-[10px] text-zinc-400 truncate block">
-                        Clinical & Rx
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickDemoLogin('receptionist@example.test', 'receptionist')
-                    }
-                    className="p-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/90 hover:border-zinc-700 transition-all flex items-center gap-2.5 text-left cursor-pointer group"
-                  >
-                    <GoogleIconCircle icon={UserCheck} color="yellow" size="xs" />
-                    <div className="min-w-0">
-                      <span className="font-bold text-zinc-100 block leading-tight group-hover:text-amber-300">
-                        Receptionist
-                      </span>
-                      <span className="text-[10px] text-zinc-400 truncate block">
-                        Admit & Billing
-                      </span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickDemoLogin('patient@example.test', 'patient')}
-                    className="p-2.5 rounded-2xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/90 hover:border-zinc-700 transition-all flex items-center gap-2.5 text-left cursor-pointer group"
-                  >
-                    <GoogleIconCircle icon={User} color="green" size="xs" />
-                    <div className="min-w-0">
-                      <span className="font-bold text-zinc-100 block leading-tight group-hover:text-emerald-300">
-                        Patient
-                      </span>
-                      <span className="text-[10px] text-zinc-400 truncate block">
-                        Self-Service
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
@@ -472,6 +382,9 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
                 <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Select Your Account Role
                 </label>
+                <p className="text-[11px] text-zinc-400">
+                  Staff and administrator accounts require approval before sign-in.
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {roleCards.map((rc) => {
                     const isSelected = registerData.role === rc.role;
@@ -651,13 +564,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
                     onChange={(e) =>
                       setRegisterData((prev) => ({ ...prev, departmentId: e.target.value }))
                     }
-                    options={[
-                      { value: 'dept-1', label: 'Cardiology' },
-                      { value: 'dept-2', label: 'Neurology' },
-                      { value: 'dept-3', label: 'General Medicine' },
-                      { value: 'dept-4', label: 'Pediatrics' },
-                      { value: 'dept-5', label: 'Orthopedics' },
-                    ]}
+                    options={departments.map((department) => ({ value: department.id, label: department.name }))}
                   />
 
                   <Input
@@ -863,17 +770,6 @@ export const LoginPage: React.FC<LoginProps> = ({ onSuccess, initialMode = 'sign
             </form>
           )}
 
-          {/* Guest / Demo Explorer Link */}
-          <div className="pt-2 text-center">
-            <button
-              type="button"
-              onClick={onSuccess}
-              className="text-xs text-zinc-400 hover:text-blue-400 transition-colors inline-flex items-center gap-1 cursor-pointer"
-            >
-              <span>Or continue into portal as demo viewer</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
         </div>
       </div>
 
