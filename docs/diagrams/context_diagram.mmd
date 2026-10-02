@@ -2,22 +2,27 @@ flowchart LR
     Patient[Patient]
     Doctor[Doctor]
     Receptionist[Receptionist]
-    Admin[Administrator]
+    Administrator[Administrator]
     HMS((Hospital Management System))
+    DB[(D1: PostgreSQL Database<br/>Users, Profiles, Appointments,<br/>Medical Records, Billing, Audit Tables)]
 
-    Patient -->|Registration, login, profile data, booking and cancellation requests| HMS
-    HMS -->|Available doctors, appointment status, prescriptions, medical history and invoices| Patient
+    Patient -->|Registration, login, profile data,<br/>appointment requests, record queries| HMS
+    HMS -->|Authentication result, appointment status,<br/>medical records, invoices| Patient
 
-    Doctor -->|Availability, consultation notes, diagnosis and prescriptions| HMS
-    HMS -->|Assigned appointments and authorized patient history| Doctor
+    Doctor -->|Login, availability, consultation notes,<br/>diagnosis, prescriptions| HMS
+    HMS -->|Assigned appointments, patient context,<br/>booking status| Doctor
 
-    Receptionist -->|Patient registration, walk-in data, appointment and billing updates| HMS
-    HMS -->|Schedules, patient details, appointment status and invoice information| Receptionist
+    Receptionist -->|Patient registration, appointment booking,<br/>invoice and payment updates| HMS
+    HMS -->|Patient details, schedules, billing status,<br/>operational reports| Receptionist
 
-    Admin -->|Staff management, configuration and oversight requests| HMS
-    HMS -->|Operational summaries, account status and audit information| Admin
+    Administrator -->|Staff management, master data,<br/>audit and reporting requests| HMS
+    HMS -->|Dashboards, account status, audit reports,<br/>system summaries| Administrator
 
-    classDef external fill:#E8F1FB,stroke:#1F4E79,stroke-width:1.5px,color:#102A43;
-    classDef system fill:#D9EAD3,stroke:#38761D,stroke-width:2px,color:#17320F;
-    class Patient,Doctor,Receptionist,Admin external;
-    class HMS system;
+    HMS <-->|Validated data and transactions| DB
+
+    classDef external fill:#e7f7f5,stroke:#197774,stroke-width:1.5px,color:#16484e;
+    classDef process fill:#eef0ff,stroke:#6651a8,stroke-width:1.5px,color:#30265f;
+    classDef datastore fill:#ffe7e7,stroke:#aa5a5a,stroke-width:1.5px,color:#672e35;
+    class Patient,Doctor,Receptionist,Administrator external;
+    class HMS process;
+    class DB datastore;
