@@ -19,12 +19,15 @@ import {
   Home,
 } from 'lucide-react';
 import GoogleIconCircle from '../ui/GoogleIconCircle';
+import { useAuth } from '../../contexts/AuthContext';
+import { canAccessPage } from '../../lib/permissions';
 
 interface FooterProps {
   onSelectPage: (page: PageId) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onSelectPage }) => {
+  const { currentRole } = useAuth();
   const currentYear = new Date().getFullYear();
 
   const navigationColumns = [
@@ -90,7 +93,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectPage }) => {
               <span>{navigationColumns[0].title}</span>
             </h4>
             <ul className="space-y-2">
-              {navigationColumns[0].links.map((link) => (
+              {navigationColumns[0].links.filter((link) => canAccessPage(currentRole, link.page)).map((link) => (
                 <li key={link.page}>
                   <button
                     onClick={() => {
@@ -113,7 +116,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectPage }) => {
               <span>{navigationColumns[1].title}</span>
             </h4>
             <ul className="space-y-2">
-              {navigationColumns[1].links.map((link) => (
+              {navigationColumns[1].links.filter((link) => canAccessPage(currentRole, link.page)).map((link) => (
                 <li key={link.page}>
                   <button
                     onClick={() => {

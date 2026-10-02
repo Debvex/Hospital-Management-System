@@ -161,7 +161,7 @@ export const BillingTable: React.FC<BillingTableProps> = ({
                       {/* Total */}
                       <td className="py-3.5 px-4">
                         <span className="font-mono font-bold text-sm text-zinc-100 tabular-nums">
-                          ${inv.totalAmount}
+                          ₹{inv.totalAmount}
                         </span>
                       </td>
 
@@ -248,8 +248,8 @@ export const BillingTable: React.FC<BillingTableProps> = ({
                     <tr key={it.id}>
                       <td className="py-2.5 px-3 font-medium text-zinc-200">{it.description}</td>
                       <td className="py-2.5 px-3 text-center font-mono tabular-nums text-zinc-400">{it.quantity}</td>
-                      <td className="py-2.5 px-3 text-right font-mono tabular-nums text-zinc-400">${it.unitPrice}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold tabular-nums text-zinc-100">${it.lineTotal}</td>
+                      <td className="py-2.5 px-3 text-right font-mono tabular-nums text-zinc-400">₹{it.unitPrice}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold tabular-nums text-zinc-100">₹{it.lineTotal}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -258,17 +258,17 @@ export const BillingTable: React.FC<BillingTableProps> = ({
               <div className="p-3.5 bg-zinc-900/60 border-t border-zinc-800 flex flex-col items-end gap-1 text-xs">
                 <div className="flex items-center justify-between w-48 text-zinc-400">
                   <span>Subtotal:</span>
-                  <span className="font-mono font-semibold tabular-nums text-zinc-200">${selectedInvoice.subtotal}</span>
+                  <span className="font-mono font-semibold tabular-nums text-zinc-200">₹{selectedInvoice.subtotal}</span>
                 </div>
                 {selectedInvoice.discount > 0 && (
                   <div className="flex items-center justify-between w-48 text-emerald-400">
                     <span>Discount:</span>
-                    <span className="font-mono font-semibold tabular-nums">-${selectedInvoice.discount}</span>
+                    <span className="font-mono font-semibold tabular-nums">-₹{selectedInvoice.discount}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between w-48 text-sm font-extrabold text-zinc-100 pt-1 border-t border-zinc-800">
                   <span>Total Due:</span>
-                  <span className="font-mono tabular-nums text-blue-400">${selectedInvoice.totalAmount}</span>
+                  <span className="font-mono tabular-nums text-blue-400">₹{selectedInvoice.totalAmount}</span>
                 </div>
               </div>
             </div>

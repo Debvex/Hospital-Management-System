@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Patient } from '../../types';
 import GoogleIconCircle from '../ui/GoogleIconCircle';
-import { User, Phone, Mail, ShieldAlert, Heart, Calendar, Plus, Eye } from 'lucide-react';
+import { User, Phone, Mail, ShieldAlert, Heart, Calendar, Plus, Eye, Pencil } from 'lucide-react';
 import { Button } from '../ui/Button';
 import Modal from '../ui/Modal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface PatientsTableProps {
   patients: Patient[];
   onAddPatient: () => void;
+  canCreate?: boolean;
+  onEditPatient?: (patient: Patient) => void;
   onSelectPatient?: (patient: Patient) => void;
   isLoading?: boolean;
 }
@@ -15,8 +18,12 @@ interface PatientsTableProps {
 export const PatientsTable: React.FC<PatientsTableProps> = ({
   patients,
   onAddPatient,
+  canCreate = true,
+  onEditPatient,
   isLoading = false,
 }) => {
+  const { currentRole } = useAuth();
+  const canViewClinicalDetails = currentRole !== 'receptionist';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatientForView, setSelectedPatientForView] = useState<Patient | null>(null);
 
@@ -45,15 +52,17 @@ export const PatientsTable: React.FC<PatientsTableProps> = ({
           />
         </div>
 
-        <Button
-          variant="google"
-          size="sm"
-          onClick={onAddPatient}
-          className="self-start sm:self-center font-bold"
-        >
-          <Plus className="w-4 h-4 text-black stroke-[2.5]" />
-          <span>Register Patient</span>
-        </Button>
+        {canCreate && (
+          <Button
+            variant="google"
+            size="sm"
+            onClick={onAddPatient}
+            className="self-start sm:self-center font-bold"
+          >
+            <Plus className="w-4 h-4 text-black stroke-[2.5]" />
+            <span>Register Patient</span>
+          </Button>
+        )}
       </div>
 
       {/* Patients Table */}
@@ -66,20 +75,20 @@ export const PatientsTable: React.FC<PatientsTableProps> = ({
                 <th className="py-3.5 px-4">MRN</th>
                 <th className="py-3.5 px-4">Blood Group</th>
                 <th className="py-3.5 px-4">Contact & Email</th>
-                <th className="py-3.5 px-4">Allergies</th>
+                {canViewClinicalDetails && <th className="py-3.5 px-4">Allergies</th>}
                 <th className="py-3.5 px-4 sm:px-6 text-right">Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-zinc-400">
+                  <td colSpan={canViewClinicalDetails ? 6 : 5} className="py-12 text-center text-zinc-400">
                     Loading patient database...
                   </td>
                 </tr>
               ) : filteredPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center">
+                  <td colSpan={canViewClinicalDetails ? 6 : 5} className="py-12 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <GoogleIconCircle icon={User} color="green" size="md" />
                       <p className="text-sm font-semibold text-zinc-200">No patients found</p>
@@ -138,23 +147,19 @@ export const PatientsTable: React.FC<PatientsTableProps> = ({
                       </div>
                     </td>
 
-                    {/* Allergies */}
-                    <td className="py-3.5 px-4">
-                      {pat.allergies && pat.allergies.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {pat.allergies.map((alg) => (
-                            <span
-                              key={alg}
-                              className="text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/60 px-1.5 py-0.5 rounded-md"
-                            >
-                              {alg}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-zinc-500 text-[11px]">NKDA (None)</span>
-                      )}
-                    </td>
+                    {canViewClinicalDetails && (
+                      <td className="py-3.5 px-4">
+                        {pat.allergies && pat.allergies.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {pat.allergies.map((alg) => (
+                              <span key={alg} className="text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/60 px-1.5 py-0.5 rounded-md">
+                                {alg}
+                              </span>
+                            ))}
+                          </div>
+                        ) : <span className="text-zinc-500 text-[11px]">NKDA (None)</span>}
+                      </td>
+                    )}
 
                     {/* Action: View full patient record */}
                     <td className="py-3.5 px-4 sm:px-6 text-right">
@@ -165,6 +170,15 @@ export const PatientsTable: React.FC<PatientsTableProps> = ({
                         <Eye className="w-3.5 h-3.5 text-blue-400" />
                         <span>Profile</span>
                       </button>
+                      {onEditPatient && (
+                        <button
+                          onClick={() => onEditPatient(pat)}
+                          className="ml-2 p-1.5 text-emerald-400 hover:bg-emerald-950/40 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1 font-semibold text-xs"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -221,19 +235,18 @@ export const PatientsTable: React.FC<PatientsTableProps> = ({
               <p className="font-mono text-zinc-400">{selectedPatientForView.emergencyContact.phone}</p>
             </div>
 
-            {/* Medical History & Allergies */}
-            <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl space-y-2 text-xs">
-              <h4 className="font-bold text-zinc-200 uppercase text-[11px] tracking-wider">Medical Notes</h4>
-              <p className="text-zinc-300 leading-relaxed">{selectedPatientForView.medicalHistorySummary}</p>
-              <div className="pt-2">
-                <span className="font-semibold text-zinc-300">Known Allergies: </span>
-                {selectedPatientForView.allergies && selectedPatientForView.allergies.length > 0 ? (
-                  <span className="text-rose-400 font-semibold">{selectedPatientForView.allergies.join(', ')}</span>
-                ) : (
-                  <span className="text-zinc-500">None reported</span>
-                )}
+            {canViewClinicalDetails && (
+              <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl space-y-2 text-xs">
+                <h4 className="font-bold text-zinc-200 uppercase text-[11px] tracking-wider">Medical Notes</h4>
+                <p className="text-zinc-300 leading-relaxed">{selectedPatientForView.medicalHistorySummary}</p>
+                <div className="pt-2">
+                  <span className="font-semibold text-zinc-300">Known Allergies: </span>
+                  {selectedPatientForView.allergies && selectedPatientForView.allergies.length > 0
+                    ? <span className="text-rose-400 font-semibold">{selectedPatientForView.allergies.join(', ')}</span>
+                    : <span className="text-zinc-500">None reported</span>}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end pt-2">
               <Button variant="outline" onClick={() => setSelectedPatientForView(null)}>

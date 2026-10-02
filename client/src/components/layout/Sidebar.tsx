@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import GoogleIconCircle, { GoogleColor } from '../ui/GoogleIconCircle';
 import { useAuth } from '../../contexts/AuthContext';
+import { canAccessPage } from '../../lib/permissions';
 
 export type PageId =
   | 'home'
@@ -36,23 +37,24 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: Home, color: 'blue' },
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'purple' },
-  { id: 'appointments', label: 'Appointments', icon: Calendar, color: 'yellow', badge: '3' },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'purple', allowedRoles: ['administrator', 'receptionist'] },
+  { id: 'appointments', label: 'Appointments', icon: Calendar, color: 'yellow', allowedRoles: ['administrator', 'doctor', 'receptionist', 'patient'] },
   {
     id: 'patients',
     label: 'Patients',
     icon: Users,
     color: 'green',
-    allowedRoles: ['administrator', 'doctor', 'receptionist'],
+    allowedRoles: ['administrator', 'doctor', 'receptionist', 'patient'],
   },
-  { id: 'doctors', label: 'Doctors & Schedule', icon: Stethoscope, color: 'purple' },
-  { id: 'medical-records', label: 'Medical Records', icon: FileText, color: 'teal' },
-  { id: 'billing', label: 'Billing & Invoices', icon: CreditCard, color: 'red' },
+  { id: 'doctors', label: 'Doctors & Schedule', icon: Stethoscope, color: 'purple', allowedRoles: ['administrator', 'receptionist', 'patient'] },
+  { id: 'medical-records', label: 'Medical Records', icon: FileText, color: 'teal', allowedRoles: ['administrator', 'doctor', 'patient'] },
+  { id: 'billing', label: 'Billing & Invoices', icon: CreditCard, color: 'red', allowedRoles: ['administrator', 'receptionist', 'patient'] },
   {
     id: 'settings',
     label: 'Settings & Audit',
     icon: Settings,
     color: 'slate',
+    allowedRoles: ['administrator'],
   },
 ];
 
@@ -72,8 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { currentUser, currentRole, logout } = useAuth();
 
   const filteredNavItems = NAV_ITEMS.filter((item) => {
-    if (!item.allowedRoles) return true;
-    return item.allowedRoles.includes(currentRole);
+    return canAccessPage(currentRole, item.id);
   });
 
   const sidebarContent = (
@@ -110,6 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {filteredNavItems.map((item) => {
           const isActive = currentPage === item.id;
           const Icon = item.icon;
+          const label = item.id === 'patients' && currentRole === 'patient' ? 'My Profile' : item.label;
 
           return (
             <button
@@ -133,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   color={item.color}
                   size="sm"
                 />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{label}</span>
               </div>
 
               {item.badge && (
@@ -169,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <button
-            onClick={logout}
+            onClick={() => logout()}
             title="Sign out or switch user"
             className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
           >

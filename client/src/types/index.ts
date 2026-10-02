@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: UserRole;
   fullName: string;
+  patientId?: string;
+  doctorId?: string;
   avatarUrl?: string;
   isActive: boolean;
   createdAt: string;
@@ -166,7 +168,7 @@ export interface AuditLog {
   actorName: string;
   actorRole: UserRole;
   action: string;
-  resourceType: 'appointment' | 'patient' | 'doctor' | 'medical_record' | 'invoice' | 'auth';
+  resourceType: 'appointment' | 'patient' | 'doctor' | 'department' | 'medical_record' | 'invoice' | 'auth';
   resourceId: string;
   metadataJson: Record<string, any>;
   ipAddress: string;

@@ -71,7 +71,7 @@ export const GoogleIconCircle: React.FC<GoogleIconCircleProps> = ({
       </div>
 
       {badge !== undefined && (
-        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#18191e] tabular-nums">
+        <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#18191e] tabular-nums">
           {badge}
         </span>
       )}

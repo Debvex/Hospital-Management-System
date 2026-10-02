@@ -206,7 +206,7 @@ export const AppointmentsTable: React.FC<AppointmentsTableProps> = ({
                       <td className="py-3.5 px-4 sm:px-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Doctor action: Write clinical record if scheduled */}
-                          {(currentRole === 'doctor' || currentRole === 'administrator') &&
+                          {currentRole === 'doctor' &&
                             apt.status === 'scheduled' && (
                               <Button
                                 size="sm"
@@ -233,7 +233,8 @@ export const AppointmentsTable: React.FC<AppointmentsTableProps> = ({
                             )}
 
                           {/* Cancellation allowed for staff and booking patient */}
-                          {apt.status === 'scheduled' && (
+                          {(currentRole === 'patient' || currentRole === 'receptionist' || currentRole === 'administrator') &&
+                            apt.status === 'scheduled' && (
                             <button
                               onClick={() => onStatusChange(apt.id, 'cancelled')}
                               className="p-1.5 text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"

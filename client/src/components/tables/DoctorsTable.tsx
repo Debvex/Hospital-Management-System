@@ -79,7 +79,7 @@ export const DoctorsTable: React.FC<DoctorsTableProps> = ({
                   </div>
 
                   <span className="font-mono font-bold text-xs bg-emerald-950/70 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-800/60">
-                    ${doc.consultationFee}
+                    ₹{doc.consultationFee}
                   </span>
                 </div>
 

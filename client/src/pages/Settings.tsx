@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
-import { AuditLog } from '../types';
+import { AuditLog, Department, User } from '../types';
 import GoogleIconCircle from '../components/ui/GoogleIconCircle';
 import { Button } from '../components/ui/Button';
 import {
@@ -18,34 +18,104 @@ import { useToast } from '../components/ui/Toast';
 
 export const SettingsPage: React.FC = () => {
   const { currentRole } = useAuth();
-  const { success } = useToast();
+  const { success, error } = useToast();
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'rbac' | 'audit' | 'security'>('rbac');
+  const [activeTab, setActiveTab] = useState<'rbac' | 'requests' | 'staff' | 'departments' | 'audit' | 'security'>('rbac');
+  const [registrationRequests, setRegistrationRequests] = useState<Awaited<ReturnType<typeof api.registrationRequests.list>>>([]);
+  const [staff, setStaff] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentName, setDepartmentName] = useState('');
+  const [departmentCode, setDepartmentCode] = useState('');
+  const [departmentDescription, setDepartmentDescription] = useState('');
 
   useEffect(() => {
-    api.auditLogs.list().then(setAuditLogs);
+    if (currentRole === 'administrator') {
+      api.auditLogs.list().then(setAuditLogs).catch(() => setAuditLogs([]));
+      api.registrationRequests.list().then(setRegistrationRequests).catch(() => setRegistrationRequests([]));
+      api.admin.users().then(setStaff).catch(() => setStaff([]));
+      api.admin.departments().then(setDepartments).catch(() => setDepartments([]));
+    } else {
+      setAuditLogs([]);
+      setRegistrationRequests([]);
+      setStaff([]);
+      setDepartments([]);
+    }
   }, [currentRole]);
 
-  const handleResetData = () => {
+  const handleRegistrationReview = async (requestId: string, decision: 'approved' | 'rejected') => {
+    try {
+      await api.registrationRequests.review(requestId, decision);
+      setRegistrationRequests((requests) => requests.filter((request) => request.id !== requestId));
+      success(decision === 'approved' ? 'Account Approved' : 'Request Rejected', 'Registration request reviewed.');
+    } catch (err: any) {
+      error('Review Failed', err.message || 'Could not review registration request.');
+    }
+  };
+
+  const handleStaffStatusChange = async (user: User) => {
+    try {
+      const updated = await api.admin.setUserActive(user.id, !user.isActive);
+      setStaff((current) => current.map((item) => item.id === updated.id ? updated : item));
+      success(updated.isActive ? 'Account Activated' : 'Account Deactivated', `${updated.fullName}'s account status was updated.`);
+    } catch (err: any) {
+      error('Account Update Failed', err.message || 'Could not update this account.');
+    }
+  };
+
+  const handleCreateDepartment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      const department = await api.admin.createDepartment({
+        name: departmentName,
+        code: departmentCode,
+        description: departmentDescription,
+      });
+      setDepartments((current) => [...current, department].sort((left, right) => left.name.localeCompare(right.name)));
+      setDepartmentName('');
+      setDepartmentCode('');
+      setDepartmentDescription('');
+      success('Department Added', `${department.name} is now available.`);
+    } catch (err: any) {
+      error('Department Creation Failed', err.message || 'Could not create department.');
+    }
+  };
+
+  const handleDepartmentStatus = async (department: Department) => {
+    try {
+      const updated = await api.admin.setDepartmentActive(department.id, !department.isActive);
+      setDepartments((current) => current.map((item) => item.id === updated.id ? updated : item));
+      success('Department Updated', `${updated.name} is ${updated.isActive ? 'active' : 'inactive'}.`);
+    } catch (err: any) {
+      error('Department Update Failed', err.message || 'Could not update department.');
+    }
+  };
+
+  const handleResetData = async () => {
     if (window.confirm('Reset HMS database back to initial seed data?')) {
-      api.resetData();
-      success('Database Reset', 'Initialized synthetic demonstration dataset.');
-      setTimeout(() => window.location.reload(), 300);
+      try {
+        await api.resetData();
+        success('Database Reset', 'Initialized synthetic demonstration dataset.');
+        window.location.reload();
+      } catch (err: any) {
+        error('Reset Failed', err.message || 'Could not reset the demonstration data.');
+      }
     }
   };
 
   const permissionsMatrix = [
     { module: 'User Authentication & JWT Verification', admin: true, doctor: true, recep: true, patient: true },
     { module: 'Register Patients (Public / Desk)', admin: true, doctor: false, recep: true, patient: true },
-    { module: 'View Full Patient Clinical Directory', admin: true, doctor: true, recep: true, patient: false },
+    { module: 'View Permitted Patient Profiles', admin: true, doctor: true, recep: true, patient: false },
+    { module: 'Maintain Own Patient Profile', admin: false, doctor: false, recep: false, patient: true },
     { module: 'Create & Manage Doctor Availability', admin: true, doctor: true, recep: false, patient: false },
     { module: 'Book & Reschedule Appointments', admin: true, doctor: false, recep: true, patient: true },
     { module: 'Server-side Slot Conflict Prevention (409)', admin: true, doctor: true, recep: true, patient: true },
     { module: 'Write Clinical Diagnoses & Prescriptions', admin: true, doctor: true, recep: false, patient: false },
-    { module: 'View Personal Medical History', admin: true, doctor: true, recep: false, patient: true },
+    { module: 'View Permitted Clinical Records', admin: true, doctor: true, recep: false, patient: true },
     { module: 'Generate Billing Invoices', admin: true, doctor: false, recep: true, patient: false },
     { module: 'Mark Invoices Paid / Record Cash', admin: true, doctor: false, recep: true, patient: false },
     { module: 'Inspect Security Audit Logs & System DDL', admin: true, doctor: false, recep: false, patient: false },
+    { module: 'Manage Staff Accounts & Departments', admin: true, doctor: false, recep: false, patient: false },
   ];
 
   return (
@@ -61,15 +131,17 @@ export const SettingsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleResetData}
-          className="text-rose-400 hover:bg-rose-950/40 border-rose-900/50"
-        >
-          <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
-          <span>Reset Demo Database</span>
-        </Button>
+        {currentRole === 'administrator' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetData}
+            className="text-rose-400 hover:bg-rose-950/40 border-rose-900/50"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+            <span>Reset Demo Database</span>
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -81,6 +153,35 @@ export const SettingsPage: React.FC = () => {
           }`}
         >
           RBAC Permissions Matrix
+        </button>
+
+        {currentRole === 'administrator' && (
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'requests' ? 'bg-zinc-900 text-white shadow-xs border border-zinc-600' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            Staff Requests ({registrationRequests.length})
+          </button>
+        )}
+
+        <button
+          onClick={() => setActiveTab('staff')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === 'staff' ? 'bg-zinc-900 text-white shadow-xs border border-zinc-600' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          Staff Accounts
+        </button>
+
+        <button
+          onClick={() => setActiveTab('departments')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === 'departments' ? 'bg-zinc-900 text-white shadow-xs border border-zinc-600' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          Departments
         </button>
 
         <button
@@ -164,6 +265,107 @@ export const SettingsPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'requests' && (
+        <div className="bg-[#181a20] rounded-3xl border border-zinc-800 p-5 sm:p-6 shadow-xs space-y-4 text-zinc-100">
+          <div>
+            <h3 className="text-base font-bold">Pending Account Requests</h3>
+            <p className="text-xs text-zinc-400 mt-1">Approve staff accounts only after verifying the applicant and their role.</p>
+          </div>
+          {currentRole !== 'administrator' ? (
+            <p className="text-sm text-amber-300">Administrator access is required to review account requests.</p>
+          ) : registrationRequests.length === 0 ? (
+            <p className="text-sm text-zinc-400">There are no pending account requests.</p>
+          ) : (
+            <div className="space-y-3">
+              {registrationRequests.map((request) => (
+                <div key={request.id} className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">{request.fullName}</p>
+                    <p className="text-xs text-zinc-400">{request.email} · {request.contactNumber}</p>
+                    <p className="text-xs text-blue-300 capitalize mt-1">Requested role: {request.role}</p>
+                    {request.role === 'doctor' && (
+                      <p className="text-xs text-zinc-400 mt-1">
+                        {request.profileData.specialization} · {request.profileData.departmentId}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-zinc-500 mt-1">Submitted {new Date(request.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => handleRegistrationReview(request.id, 'rejected')}>
+                      Reject
+                    </Button>
+                    <Button size="sm" variant="google" onClick={() => handleRegistrationReview(request.id, 'approved')}>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Approve
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'staff' && (
+        <div className="bg-[#181a20] rounded-3xl border border-zinc-800 p-5 sm:p-6 shadow-xs space-y-4 text-zinc-100">
+          <div>
+            <h3 className="text-base font-bold">Staff Accounts</h3>
+            <p className="text-xs text-zinc-400 mt-1">Deactivate or reactivate an existing account. At least one Administrator must remain active.</p>
+          </div>
+          <div className="space-y-2">
+            {staff.filter((user) => user.role !== 'patient').map((user) => (
+              <div key={user.id} className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-sm">{user.fullName}</p>
+                  <p className="text-xs text-zinc-400">{user.email}</p>
+                  <p className="text-xs text-blue-300 capitalize mt-1">{user.role} · {user.isActive ? 'Active' : 'Inactive'}</p>
+                </div>
+                <Button size="sm" variant={user.isActive ? 'outline' : 'google'} onClick={() => handleStaffStatusChange(user)}>
+                  {user.isActive ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'departments' && (
+        <div className="bg-[#181a20] rounded-3xl border border-zinc-800 p-5 sm:p-6 shadow-xs space-y-5 text-zinc-100">
+          <div>
+            <h3 className="text-base font-bold">Hospital Departments</h3>
+            <p className="text-xs text-zinc-400 mt-1">Create departments and control whether they can accept new doctor assignments.</p>
+          </div>
+          <form onSubmit={handleCreateDepartment} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <label className="space-y-1 text-xs text-zinc-300">
+              <span>Department name</span>
+              <input required value={departmentName} onChange={(event) => setDepartmentName(event.target.value)} className="w-full rounded-xl border border-zinc-700 bg-[#14161a] px-3 py-2 text-sm text-zinc-100" />
+            </label>
+            <label className="space-y-1 text-xs text-zinc-300">
+              <span>Code</span>
+              <input required maxLength={12} value={departmentCode} onChange={(event) => setDepartmentCode(event.target.value)} className="w-full rounded-xl border border-zinc-700 bg-[#14161a] px-3 py-2 text-sm text-zinc-100" />
+            </label>
+            <Button type="submit" variant="google">Add Department</Button>
+            <label className="space-y-1 text-xs text-zinc-300 sm:col-span-3">
+              <span>Description</span>
+              <input value={departmentDescription} onChange={(event) => setDepartmentDescription(event.target.value)} className="w-full rounded-xl border border-zinc-700 bg-[#14161a] px-3 py-2 text-sm text-zinc-100" />
+            </label>
+          </form>
+          <div className="space-y-2">
+            {departments.map((department) => (
+              <div key={department.id} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+                <div>
+                  <p className="font-semibold text-sm">{department.name} <span className="ml-2 font-mono text-xs text-zinc-400">{department.code}</span></p>
+                  <p className="text-xs text-zinc-400">{department.description || 'No description'} · {department.isActive ? 'Active' : 'Inactive'}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => handleDepartmentStatus(department)}>
+                  {department.isActive ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
       )}

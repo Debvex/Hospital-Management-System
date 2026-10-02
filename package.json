@@ -1,0 +1,19 @@
+{
+  "name": "hms",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hospital Management System: React client + Express API + PostgreSQL",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:server": "npm ci --omit=dev --prefix server",
+    "install:client": "npx --yes pnpm@latest --dir client install --frozen-lockfile --prod=false",
+    "build:client": "npx --yes pnpm@latest --dir client build",
+    "build": "npm run install:server && npm run install:client && npm run build:client",
+    "start": "npm start --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npx --yes pnpm@latest --dir client dev",
+    "test": "npm test --prefix server"
+  }
+}

@@ -1,85 +1,63 @@
-/**
- * Clean Architecture API Client & Data Repository
- * Aligned with Express REST API endpoints (/api/v1) and PostgreSQL schema specified in README.
- */
-
 import {
   Appointment,
-  Patient,
-  Doctor,
-  MedicalRecord,
-  Invoice,
+  AppointmentStatus,
   AuditLog,
+  DashboardSummary,
+  Department,
+  Doctor,
+  Invoice,
+  MedicalRecord,
+  Patient,
+  PaymentStatus,
   User,
   UserRole,
-  DashboardSummary,
-  AppointmentStatus,
-  PaymentStatus,
 } from '../types';
+import { authStorage } from './auth';
 
-import {
-  initialUsers,
-  initialPatients,
-  initialDoctors,
-  initialAppointments,
-  initialMedicalRecords,
-  initialInvoices,
-  initialAuditLogs,
-} from './mockData';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1').replace(/\/$/, '');
 
 export class AppError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly code: string,
     message: string,
-    public readonly details?: unknown
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = 'AppError';
   }
 }
 
-// Storage keys
-const STORAGE_PREFIX = 'carepulse_hms_';
-const KEYS = {
-  APPOINTMENTS: `${STORAGE_PREFIX}appointments`,
-  PATIENTS: `${STORAGE_PREFIX}patients`,
-  DOCTORS: `${STORAGE_PREFIX}doctors`,
-  RECORDS: `${STORAGE_PREFIX}medical_records`,
-  INVOICES: `${STORAGE_PREFIX}invoices`,
-  AUDIT_LOGS: `${STORAGE_PREFIX}audit_logs`,
-  AUTH_TOKEN: `${STORAGE_PREFIX}token`,
-  CURRENT_USER: `${STORAGE_PREFIX}user`,
-  USERS: `${STORAGE_PREFIX}users`,
-  CREDENTIALS: `${STORAGE_PREFIX}credentials`,
-};
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const token = authStorage.getToken();
+  if (token && !token.startsWith('jwt_mock_')) headers.set('Authorization', `Bearer ${token}`);
 
-function getStored<T>(key: string, fallback: T): T {
+  let response: Response;
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
+    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   } catch {
-    return fallback;
+    throw new AppError(0, 'API_UNAVAILABLE', 'Could not connect to the HMS API. Check that the server is running.');
   }
+
+  if (response.status === 204) return undefined as T;
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = result?.error;
+    throw new AppError(response.status, error?.code || 'REQUEST_FAILED', error?.message || 'The request failed.', error?.details);
+  }
+  return result as T;
 }
 
-function setStored<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.error('Failed to persist to localStorage', e);
-  }
+function queryString(values: Record<string, string | undefined>): string {
+  const query = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  const text = query.toString();
+  return text ? `?${text}` : '';
 }
-
-// In-memory + persistent state
-let users: User[] = getStored(KEYS.USERS, initialUsers);
-let patients: Patient[] = getStored(KEYS.PATIENTS, initialPatients);
-let doctors: Doctor[] = getStored(KEYS.DOCTORS, initialDoctors);
-let appointments: Appointment[] = getStored(KEYS.APPOINTMENTS, initialAppointments);
-let records: MedicalRecord[] = getStored(KEYS.RECORDS, initialMedicalRecords);
-let invoices: Invoice[] = getStored(KEYS.INVOICES, initialInvoices);
-let auditLogs: AuditLog[] = getStored(KEYS.AUDIT_LOGS, initialAuditLogs);
 
 export interface RegisterPayload {
   email: string;
@@ -97,269 +75,40 @@ export interface RegisterPayload {
   staffBadgeId?: string;
 }
 
-// Central API Service Client
+type AuthResponse =
+  | { status: 'active'; token: string; user: User; patient?: Patient; doctor?: Doctor }
+  | { status: 'pending_approval'; message: string; request: { id: string; role: UserRole } };
+
+export interface RegistrationRequest {
+  id: string;
+  email: string;
+  role: UserRole;
+  fullName: string;
+  contactNumber: string;
+  profileData: Record<string, string>;
+  status: 'pending';
+  createdAt: string;
+}
+
 export const api = {
-  // Authentication & Session
   auth: {
-    register: async (payload: RegisterPayload): Promise<{ token: string; user: User; patient?: Patient; doctor?: Doctor }> => {
-      // Synthetic network delay
-      await new Promise((resolve) => setTimeout(resolve, 350));
-
-      const cleanEmail = payload.email.toLowerCase().trim();
-
-      // Check if user email already exists
-      const existingUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
-      if (existingUser) {
-        throw new AppError(
-          409,
-          'CONFLICT_EMAIL_EXISTS',
-          'An account with this email address already exists. Please sign in or use another email.'
-        );
-      }
-
-      // Create new User entity
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        email: cleanEmail,
-        fullName: payload.fullName.trim(),
-        role: payload.role,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      users = [newUser, ...users];
-      setStored(KEYS.USERS, users);
-
-      // Save credentials for simulated password verification
-      const credentials = getStored<Record<string, string>>(KEYS.CREDENTIALS, {
-        'administrator@example.test': 'Password@123',
-        'doctor@example.test': 'Password@123',
-        'receptionist@example.test': 'Password@123',
-        'patient@example.test': 'Password@123',
-      });
-      credentials[cleanEmail] = payload.password;
-      setStored(KEYS.CREDENTIALS, credentials);
-
-      let createdPatient: Patient | undefined;
-      let createdDoctor: Doctor | undefined;
-
-      // Automatically initialize linked Patient entity if registered as Patient
-      if (payload.role === 'patient') {
-        const nextMrnSeq = patients.length + 1;
-        createdPatient = {
-          id: `pat-${Date.now()}`,
-          userId: newUser.id,
-          mrn: `MRN-${new Date().getFullYear()}-${String(nextMrnSeq).padStart(3, '0')}`,
-          fullName: newUser.fullName,
-          dateOfBirth: payload.dateOfBirth || '1995-01-01',
-          gender: payload.gender || 'other',
-          bloodGroup: (payload.bloodGroup as any) || 'O+',
-          contactNumber: payload.contactNumber,
-          email: newUser.email,
-          address: 'Self-registered Online Portal Patient',
-          emergencyContact: {
-            name: 'Primary Contact',
-            relationship: 'Self/Family',
-            phone: payload.contactNumber,
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        patients = [createdPatient, ...patients];
-        setStored(KEYS.PATIENTS, patients);
-      }
-
-      // Automatically initialize linked Doctor entity if registered as Doctor
-      if (payload.role === 'doctor') {
-        createdDoctor = {
-          id: `doc-${Date.now()}`,
-          userId: newUser.id,
-          fullName: newUser.fullName.startsWith('Dr.') ? newUser.fullName : `Dr. ${newUser.fullName}`,
-          email: newUser.email,
-          departmentId: payload.departmentId || 'dept-1',
-          departmentName: payload.departmentName || 'General Medicine',
-          specialization: payload.specialization || 'Internal Medicine Specialist',
-          qualification: payload.qualification || 'MBBS, MD',
-          experienceYears: 6,
-          consultationFee: 140,
-          roomNumber: 'OPD Suite 105',
-          contactNumber: payload.contactNumber,
-          avatarColor: 'teal',
-          availability: [
-            {
-              id: `avail-${Date.now()}-1`,
-              doctorId: `doc-${Date.now()}`,
-              dayOfWeek: 'Monday',
-              startTime: '09:00',
-              endTime: '13:00',
-              slotDurationMinutes: 30,
-              isActive: true,
-            },
-            {
-              id: `avail-${Date.now()}-2`,
-              doctorId: `doc-${Date.now()}`,
-              dayOfWeek: 'Thursday',
-              startTime: '09:00',
-              endTime: '13:00',
-              slotDurationMinutes: 30,
-              isActive: true,
-            },
-          ],
-          isActive: true,
-        };
-
-        doctors = [createdDoctor, ...doctors];
-        setStored(KEYS.DOCTORS, doctors);
-      }
-
-      // Generate JWT session token
-      const token = `jwt_mock_${newUser.role}_${Date.now()}`;
-      setStored(KEYS.AUTH_TOKEN, token);
-      setStored(KEYS.CURRENT_USER, newUser);
-
-      // Audit log registration
-      api.auditLogs.logAction({
-        actorUserId: newUser.id,
-        actorName: newUser.fullName,
-        actorRole: newUser.role,
-        action: 'USER_REGISTER',
-        resourceType: 'auth',
-        resourceId: newUser.id,
-        metadataJson: {
-          email: newUser.email,
-          role: newUser.role,
-          linkedPatientId: createdPatient?.id,
-          linkedDoctorId: createdDoctor?.id,
-          timestamp: new Date().toISOString(),
-        },
-      });
-
-      return { token, user: newUser, patient: createdPatient, doctor: createdDoctor };
-    },
-
-    login: async (email: string, role?: UserRole, password?: string): Promise<{ token: string; user: User }> => {
-      // Synthetic delay to simulate Express auth pipeline
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      
-      const cleanEmail = email.toLowerCase().trim();
-      let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
-
-      // Check password if provided
-      if (password) {
-        const credentials = getStored<Record<string, string>>(KEYS.CREDENTIALS, {
-          'administrator@example.test': 'Password@123',
-          'doctor@example.test': 'Password@123',
-          'receptionist@example.test': 'Password@123',
-          'patient@example.test': 'Password@123',
-        });
-        const storedPassword = credentials[cleanEmail];
-        if (storedPassword && storedPassword !== password) {
-          throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password. Please try again.');
-        }
-      }
-
-      if (!user) {
-        // Fallback for demo users
-        user = {
-          id: `user-${Date.now()}`,
-          email: cleanEmail,
-          fullName: cleanEmail.split('@')[0],
-          role: role || 'patient',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        users = [user, ...users];
-        setStored(KEYS.USERS, users);
-      }
-
-      const token = `jwt_mock_${user.role}_${Date.now()}`;
-      setStored(KEYS.AUTH_TOKEN, token);
-      setStored(KEYS.CURRENT_USER, user);
-
-      // Log login event in audit table
-      api.auditLogs.logAction({
-        actorUserId: user.id,
-        actorName: user.fullName,
-        actorRole: user.role,
-        action: 'USER_LOGIN',
-        resourceType: 'auth',
-        resourceId: user.id,
-        metadataJson: { email: user.email, timestamp: new Date().toISOString() },
-      });
-
-      return { token, user };
-    },
-
-    requestPasswordReset: async (email: string): Promise<{ success: boolean; message: string }> => {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      const cleanEmail = email.toLowerCase().trim();
-      const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
-      if (!user) {
-        // Return friendly message without leaking user existence
-        return {
-          success: true,
-          message: 'If an account with this email exists, a password reset link has been dispatched.',
-        };
-      }
-
-      api.auditLogs.logAction({
-        actorUserId: user.id,
-        actorName: user.fullName,
-        actorRole: user.role,
-        action: 'PASSWORD_RESET_REQUESTED',
-        resourceType: 'auth',
-        resourceId: user.id,
-        metadataJson: { email: user.email, timestamp: new Date().toISOString() },
-      });
-
-      return {
-        success: true,
-        message: `Password reset instructions sent to ${cleanEmail}. (In demo mode: use Password@123)`,
-      };
-    },
-
-    getUsers: async (): Promise<User[]> => {
-      return [...users];
-    },
-
-    getCurrentUser: (): User => {
-      return getStored(KEYS.CURRENT_USER, initialUsers[0]);
-    },
-
-    logout: async () => {
-      localStorage.removeItem(KEYS.AUTH_TOKEN);
-      localStorage.removeItem(KEYS.CURRENT_USER);
-    },
+    register: (payload: RegisterPayload) => request<AuthResponse>('/auth/register', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
+    login: (email: string, password: string) => request<{ token: string; user: User }>('/auth/login', {
+      method: 'POST', body: JSON.stringify({ email, password }),
+    }),
+    requestPasswordReset: (email: string) => request<{ success: boolean; message: string }>('/auth/password-reset', {
+      method: 'POST', body: JSON.stringify({ email }),
+    }),
+    getUsers: () => request<User[]>('/auth/users'),
+    getCurrentUser: () => authStorage.getStoredUser() as User,
+    logout: () => authStorage.clearSession(),
   },
-
-  // Appointments (with strict 409 conflict detection rule from README section 11.6 & 14)
   appointments: {
-    list: async (filters?: {
-      doctorId?: string;
-      patientId?: string;
-      status?: AppointmentStatus;
-      date?: string;
-    }): Promise<Appointment[]> => {
-      let result = [...appointments];
-      if (filters?.doctorId) {
-        result = result.filter((a) => a.doctorId === filters.doctorId);
-      }
-      if (filters?.patientId) {
-        result = result.filter((a) => a.patientId === filters.patientId);
-      }
-      if (filters?.status) {
-        result = result.filter((a) => a.status === filters.status);
-      }
-      if (filters?.date) {
-        result = result.filter((a) => a.appointmentDate === filters.date);
-      }
-      return result;
-    },
-
-    create: async (data: {
+    list: (filters?: { doctorId?: string; patientId?: string; status?: AppointmentStatus; date?: string }) =>
+      request<Appointment[]>(`/appointments${queryString(filters || {})}`),
+    create: (data: {
       patientId: string;
       doctorId: string;
       appointmentDate: string;
@@ -367,181 +116,34 @@ export const api = {
       reason: string;
       type: Appointment['type'];
       createdByRole: UserRole;
-    }): Promise<Appointment> => {
-      // Calculate end time (30 min slot)
-      const [h, m] = data.startTime.split(':').map(Number);
-      const endM = m + 30;
-      const endH = endM >= 60 ? h + 1 : h;
-      const formattedEndM = endM >= 60 ? endM - 60 : endM;
-      const endTime = `${String(endH).padStart(2, '0')}:${String(formattedEndM).padStart(2, '0')}`;
-
-      // Enforce appointment conflict rule:
-      // A doctor cannot have two active appointments for the same date & start time.
-      const existingConflict = appointments.find(
-        (a) =>
-          a.doctorId === data.doctorId &&
-          a.appointmentDate === data.appointmentDate &&
-          a.startTime === data.startTime &&
-          a.status !== 'cancelled'
-      );
-
-      if (existingConflict) {
-        throw new AppError(
-          409,
-          'APPOINTMENT_SLOT_UNAVAILABLE',
-          `The selected appointment slot (${data.startTime} on ${data.appointmentDate}) is no longer available with this doctor.`,
-          { doctorId: data.doctorId, conflictAppointmentId: existingConflict.id }
-        );
-      }
-
-      const patient = patients.find((p) => p.id === data.patientId);
-      const doctor = doctors.find((d) => d.id === data.doctorId);
-
-      if (!patient || !doctor) {
-        throw new AppError(400, 'INVALID_RELATION', 'Patient or Doctor not found.');
-      }
-
-      const newAppointment: Appointment = {
-        id: `apt-${Date.now()}`,
-        patientId: patient.id,
-        patientName: patient.fullName,
-        patientMrn: patient.mrn,
-        doctorId: doctor.id,
-        doctorName: doctor.fullName,
-        departmentName: doctor.departmentName,
-        appointmentDate: data.appointmentDate,
-        startTime: data.startTime,
-        endTime,
-        status: 'scheduled',
-        reason: data.reason,
-        type: data.type,
-        createdByRole: data.createdByRole,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      appointments = [newAppointment, ...appointments];
-      setStored(KEYS.APPOINTMENTS, appointments);
-
-      // Audit log
-      api.auditLogs.logAction({
-        actorUserId: 'system',
-        actorName: data.createdByRole,
-        actorRole: data.createdByRole,
-        action: 'CREATE_APPOINTMENT',
-        resourceType: 'appointment',
-        resourceId: newAppointment.id,
-        metadataJson: {
-          doctor: doctor.fullName,
-          patient: patient.fullName,
-          date: data.appointmentDate,
-          slot: data.startTime,
-        },
-      });
-
-      return newAppointment;
+    }) => {
+      const { createdByRole: _createdByRole, ...payload } = data;
+      return request<Appointment>('/appointments', { method: 'POST', body: JSON.stringify(payload) });
     },
-
-    updateStatus: async (
-      appointmentId: string,
-      status: AppointmentStatus
-    ): Promise<Appointment> => {
-      const index = appointments.findIndex((a) => a.id === appointmentId);
-      if (index === -1) {
-        throw new AppError(404, 'NOT_FOUND', 'Appointment not found.');
-      }
-
-      appointments[index] = {
-        ...appointments[index],
-        status,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setStored(KEYS.APPOINTMENTS, appointments);
-
-      api.auditLogs.logAction({
-        actorUserId: 'system',
-        actorName: 'Operator',
-        actorRole: 'receptionist',
-        action: 'UPDATE_APPOINTMENT_STATUS',
-        resourceType: 'appointment',
-        resourceId: appointmentId,
-        metadataJson: { newStatus: status },
-      });
-
-      return appointments[index];
-    },
-
-    cancel: async (appointmentId: string, reason?: string): Promise<Appointment> => {
-      return api.appointments.updateStatus(appointmentId, 'cancelled');
-    },
+    updateStatus: (appointmentId: string, status: AppointmentStatus) =>
+      request<Appointment>(`/appointments/${encodeURIComponent(appointmentId)}`, {
+        method: 'PATCH', body: JSON.stringify({ status }),
+      }),
+    cancel: (appointmentId: string, reason?: string) =>
+      request<Appointment>(`/appointments/${encodeURIComponent(appointmentId)}/cancel`, {
+        method: 'POST', body: JSON.stringify({ reason }),
+      }),
   },
-
-  // Patients
   patients: {
-    list: async (searchQuery?: string): Promise<Patient[]> => {
-      if (!searchQuery) return patients;
-      const q = searchQuery.toLowerCase();
-      return patients.filter(
-        (p) =>
-          p.fullName.toLowerCase().includes(q) ||
-          p.mrn.toLowerCase().includes(q) ||
-          p.contactNumber.includes(q) ||
-          p.email.toLowerCase().includes(q)
-      );
-    },
-
-    getById: async (id: string): Promise<Patient | undefined> => {
-      return patients.find((p) => p.id === id);
-    },
-
-    create: async (data: Omit<Patient, 'id' | 'createdAt' | 'updatedAt' | 'mrn'>): Promise<Patient> => {
-      const mrnSeq = String(patients.length + 1).padStart(3, '0');
-      const newPatient: Patient = {
-        ...data,
-        id: `pat-${Date.now()}`,
-        mrn: `MRN-2026-${mrnSeq}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      patients = [newPatient, ...patients];
-      setStored(KEYS.PATIENTS, patients);
-
-      api.auditLogs.logAction({
-        actorUserId: 'system',
-        actorName: 'Staff',
-        actorRole: 'receptionist',
-        action: 'REGISTER_PATIENT',
-        resourceType: 'patient',
-        resourceId: newPatient.id,
-        metadataJson: { mrn: newPatient.mrn, name: newPatient.fullName },
-      });
-
-      return newPatient;
-    },
+    list: (searchQuery?: string) => request<Patient[]>(`/patients${queryString({ search: searchQuery })}`),
+    getById: (id: string) => request<Patient>(`/patients/${encodeURIComponent(id)}`),
+    create: (data: Omit<Patient, 'id' | 'createdAt' | 'updatedAt' | 'mrn'>) =>
+      request<Patient>('/patients', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Pick<Patient, 'contactNumber' | 'address' | 'emergencyContact'>) =>
+      request<Patient>(`/patients/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
-
-  // Doctors
   doctors: {
-    list: async (departmentId?: string): Promise<Doctor[]> => {
-      if (!departmentId) return doctors;
-      return doctors.filter((d) => d.departmentId === departmentId);
-    },
-
-    getById: async (id: string): Promise<Doctor | undefined> => {
-      return doctors.find((d) => d.id === id);
-    },
+    list: (departmentId?: string) => request<Doctor[]>(`/doctors${queryString({ departmentId })}`),
+    getById: (id: string) => request<Doctor>(`/doctors/${encodeURIComponent(id)}`),
   },
-
-  // Medical Records & Prescriptions
   medicalRecords: {
-    list: async (patientId?: string): Promise<MedicalRecord[]> => {
-      if (!patientId) return records;
-      return records.filter((r) => r.patientId === patientId);
-    },
-
-    create: async (data: {
+    list: (patientId?: string) => request<MedicalRecord[]>(`/medical-records${queryString({ patientId })}`),
+    create: (data: {
       appointmentId: string;
       patientId: string;
       doctorId: string;
@@ -551,195 +153,53 @@ export const api = {
       vitals?: MedicalRecord['vitals'];
       prescriptions: MedicalRecord['prescriptions'];
       followUpDate?: string;
-    }): Promise<MedicalRecord> => {
-      const patient = patients.find((p) => p.id === data.patientId);
-      const doctor = doctors.find((d) => d.id === data.doctorId);
-
-      const newRecord: MedicalRecord = {
-        id: `rec-${Date.now()}`,
-        appointmentId: data.appointmentId,
-        patientId: data.patientId,
-        patientName: patient?.fullName || 'Patient',
-        doctorId: data.doctorId,
-        doctorName: doctor?.fullName || 'Doctor',
-        doctorSpecialization: doctor?.specialization || 'General',
-        recordDate: new Date().toISOString().split('T')[0],
-        vitals: data.vitals,
-        symptoms: data.symptoms,
-        diagnosis: data.diagnosis,
-        consultationNotes: data.consultationNotes,
-        prescriptions: data.prescriptions,
-        followUpDate: data.followUpDate,
-        createdAt: new Date().toISOString(),
-      };
-
-      records = [newRecord, ...records];
-      setStored(KEYS.RECORDS, records);
-
-      // Mark appointment as completed
-      if (data.appointmentId) {
-        await api.appointments.updateStatus(data.appointmentId, 'completed');
-      }
-
-      api.auditLogs.logAction({
-        actorUserId: doctor?.userId || 'system',
-        actorName: doctor?.fullName || 'Doctor',
-        actorRole: 'doctor',
-        action: 'CREATE_CLINICAL_RECORD',
-        resourceType: 'medical_record',
-        resourceId: newRecord.id,
-        metadataJson: {
-          patientMrn: patient?.mrn,
-          prescriptionsCount: data.prescriptions.length,
-          diagnosis: data.diagnosis,
-        },
-      });
-
-      return newRecord;
-    },
+    }) => request<MedicalRecord>('/medical-records', { method: 'POST', body: JSON.stringify(data) }),
   },
-
-  // Billing & Invoices
   invoices: {
-    list: async (patientId?: string): Promise<Invoice[]> => {
-      if (!patientId) return invoices;
-      return invoices.filter((i) => i.patientId === patientId);
-    },
-
-    create: async (data: {
+    list: (patientId?: string) => request<Invoice[]>(`/invoices${queryString({ patientId })}`),
+    create: (data: {
       appointmentId?: string;
       patientId: string;
       items: Invoice['items'];
       discount?: number;
       paymentMethod?: Invoice['paymentMethod'];
       paymentStatus: PaymentStatus;
-    }): Promise<Invoice> => {
-      const patient = patients.find((p) => p.id === data.patientId);
-      const subtotal = data.items.reduce((sum, item) => sum + item.lineTotal, 0);
-      const discount = data.discount || 0;
-      const totalAmount = Math.max(0, subtotal - discount);
-
-      const invSeq = String(invoices.length + 101);
-      const newInvoice: Invoice = {
-        id: `inv-${Date.now()}`,
-        invoiceNumber: `INV-2026-${invSeq}`,
-        appointmentId: data.appointmentId,
-        patientId: data.patientId,
-        patientName: patient?.fullName || 'Patient',
-        subtotal,
-        additionalCharges: 0,
-        discount,
-        totalAmount,
-        paymentStatus: data.paymentStatus,
-        paymentMethod: data.paymentMethod,
-        paidAt: data.paymentStatus === 'paid' ? new Date().toISOString() : undefined,
-        dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-        items: data.items,
-        createdAt: new Date().toISOString(),
-      };
-
-      invoices = [newInvoice, ...invoices];
-      setStored(KEYS.INVOICES, invoices);
-
-      api.auditLogs.logAction({
-        actorUserId: 'system',
-        actorName: 'Billing Desk',
-        actorRole: 'receptionist',
-        action: 'CREATE_INVOICE',
-        resourceType: 'invoice',
-        resourceId: newInvoice.id,
-        metadataJson: { invoiceNumber: newInvoice.invoiceNumber, total: totalAmount },
-      });
-
-      return newInvoice;
-    },
-
-    markPaid: async (
-      invoiceId: string,
-      paymentMethod: NonNullable<Invoice['paymentMethod']> = 'cash'
-    ): Promise<Invoice> => {
-      const idx = invoices.findIndex((i) => i.id === invoiceId);
-      if (idx === -1) {
-        throw new AppError(404, 'NOT_FOUND', 'Invoice not found.');
-      }
-
-      invoices[idx] = {
-        ...invoices[idx],
-        paymentStatus: 'paid',
-        paymentMethod,
-        paidAt: new Date().toISOString(),
-      };
-
-      setStored(KEYS.INVOICES, invoices);
-
-      api.auditLogs.logAction({
-        actorUserId: 'system',
-        actorName: 'Cashier',
-        actorRole: 'receptionist',
-        action: 'RECORD_PAYMENT',
-        resourceType: 'invoice',
-        resourceId: invoiceId,
-        metadataJson: { paymentMethod, invoiceNumber: invoices[idx].invoiceNumber },
-      });
-
-      return invoices[idx];
-    },
+    }) => request<Invoice>('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+    markPaid: (invoiceId: string, paymentMethod: NonNullable<Invoice['paymentMethod']> = 'cash') =>
+      request<Invoice>(`/invoices/${encodeURIComponent(invoiceId)}/mark-paid`, {
+        method: 'PATCH', body: JSON.stringify({ paymentMethod }),
+      }),
   },
-
-  // Audit Logs
   auditLogs: {
-    list: async (): Promise<AuditLog[]> => {
-      return [...auditLogs];
-    },
-
-    logAction: (log: Omit<AuditLog, 'id' | 'ipAddress' | 'createdAt'>) => {
-      const entry: AuditLog = {
-        ...log,
-        id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        ipAddress: '127.0.0.1',
-        createdAt: new Date().toISOString(),
-      };
-      auditLogs = [entry, ...auditLogs];
-      setStored(KEYS.AUDIT_LOGS, auditLogs);
-    },
+    list: () => request<AuditLog[]>('/audit-logs'),
   },
-
-  // Dashboard KPIs
   dashboard: {
-    getSummary: async (): Promise<DashboardSummary> => {
-      const today = new Date().toISOString().split('T')[0];
-      const todayAppointments = appointments.filter((a) => a.appointmentDate === today);
-      const pendingConsultations = todayAppointments.filter((a) => a.status === 'scheduled').length;
-      const unpaidInvoices = invoices.filter((i) => i.paymentStatus === 'unpaid').length;
-      const todayPaidInvoices = invoices.filter(
-        (i) => i.paymentStatus === 'paid' && i.paidAt?.startsWith(today)
-      );
-      const totalRevenueToday = todayPaidInvoices.reduce((acc, i) => acc + i.totalAmount, 0) || 570;
-
-      return {
-        totalAppointmentsToday: todayAppointments.length || 3,
-        pendingConsultations,
-        totalActivePatients: patients.length,
-        availableDoctorsCount: doctors.filter((d) => d.isActive).length,
-        totalRevenueToday,
-        unpaidInvoicesCount: unpaidInvoices,
-      };
-    },
+    getSummary: () => request<DashboardSummary>('/dashboard/summary'),
   },
-
-  // Reset database to initial state for testing & demonstration
-  resetData: () => {
-    localStorage.removeItem(KEYS.APPOINTMENTS);
-    localStorage.removeItem(KEYS.PATIENTS);
-    localStorage.removeItem(KEYS.DOCTORS);
-    localStorage.removeItem(KEYS.RECORDS);
-    localStorage.removeItem(KEYS.INVOICES);
-    localStorage.removeItem(KEYS.AUDIT_LOGS);
-    appointments = [...initialAppointments];
-    patients = [...initialPatients];
-    doctors = [...initialDoctors];
-    records = [...initialMedicalRecords];
-    invoices = [...initialInvoices];
-    auditLogs = [...initialAuditLogs];
+  resetData: () => request<{ success: boolean }>('/admin/reset-demo', { method: 'POST' }),
+  registrationRequests: {
+    list: () => request<RegistrationRequest[]>('/admin/registration-requests'),
+    review: (requestId: string, decision: 'approved' | 'rejected') =>
+      request<{ id: string; status: 'approved' | 'rejected' }>(
+        `/admin/registration-requests/${encodeURIComponent(requestId)}`,
+        { method: 'PATCH', body: JSON.stringify({ decision }) },
+      ),
+  },
+  admin: {
+    users: () => request<User[]>('/admin/users'),
+    setUserActive: (id: string, isActive: boolean) =>
+      request<User>(`/admin/users/${encodeURIComponent(id)}/active`, {
+        method: 'PATCH', body: JSON.stringify({ isActive }),
+      }),
+    departments: () => request<Department[]>('/admin/departments'),
+    createDepartment: (data: Pick<Department, 'name' | 'code'> & Partial<Pick<Department, 'description' | 'headOfDepartment' | 'roomFloor'>>) =>
+      request<Department>('/admin/departments', { method: 'POST', body: JSON.stringify(data) }),
+    setDepartmentActive: (id: string, isActive: boolean) =>
+      request<Department>(`/admin/departments/${encodeURIComponent(id)}/active`, {
+        method: 'PATCH', body: JSON.stringify({ isActive }),
+      }),
+  },
+  departments: {
+    list: () => request<Department[]>('/departments'),
   },
 };

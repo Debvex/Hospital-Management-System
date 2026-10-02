@@ -1,0 +1,20 @@
+import { Router } from 'express';
+import authRoutes from './authRoutes.js';
+import patientRoutes from './PatientRoutes.js';
+import doctorRoutes from './doctorRoutes.js';
+import appointmentRoutes from './appointmentRoutes.js';
+import medicalRecordRoutes from './medicalRecordRoutes.js';
+import billingRoutes from './billingRoutes.js';
+import systemRoutes from './systemRoutes.js';
+import departmentRoutes from './departmentRoutes.js';
+
+const router = Router();
+router.use('/auth', authRoutes);
+router.use('/patients', patientRoutes);
+router.use('/doctors', doctorRoutes);
+router.use('/appointments', appointmentRoutes);
+router.use('/medical-records', medicalRecordRoutes);
+router.use('/invoices', billingRoutes);
+router.use('/departments', departmentRoutes);
+router.use('/', systemRoutes);
+export default router;

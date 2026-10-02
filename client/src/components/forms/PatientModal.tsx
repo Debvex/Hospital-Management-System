@@ -12,6 +12,7 @@ interface PatientModalProps {
   onClose: () => void;
   onSuccess: (patient: Patient) => void;
   initialData?: Patient | null;
+  selfService?: boolean;
 }
 
 export const PatientModal: React.FC<PatientModalProps> = ({
@@ -19,6 +20,7 @@ export const PatientModal: React.FC<PatientModalProps> = ({
   onClose,
   onSuccess,
   initialData,
+  selfService = false,
 }) => {
   const { success, error } = useToast();
   const [fullName, setFullName] = useState(initialData?.fullName || '');
@@ -49,7 +51,7 @@ export const PatientModal: React.FC<PatientModalProps> = ({
         .map((s) => s.trim())
         .filter(Boolean);
 
-      const created = await api.patients.create({
+      const patientData = {
         fullName,
         dateOfBirth,
         gender,
@@ -64,10 +66,21 @@ export const PatientModal: React.FC<PatientModalProps> = ({
         },
         allergies,
         medicalHistorySummary: historySummary || 'No reported prior chronic conditions.',
-      });
+      };
+      const saved = selfService && initialData
+        ? await api.patients.update(initialData.id, {
+            contactNumber,
+            address,
+            emergencyContact: {
+              name: emergencyName,
+              relationship: emergencyRelation,
+              phone: emergencyPhone,
+            },
+          })
+        : await api.patients.create(patientData);
 
-      success('Patient Registered', `${created.fullName} enrolled with ID ${created.mrn}`);
-      onSuccess(created);
+      success(selfService ? 'Profile Updated' : 'Patient Registered', selfService ? 'Your contact details were updated.' : `${saved.fullName} enrolled with ID ${saved.mrn}`);
+      onSuccess(saved);
       onClose();
     } catch (err: any) {
       error('Registration Failed', err.message);
@@ -80,52 +93,51 @@ export const PatientModal: React.FC<PatientModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? 'Edit Patient Record' : 'Register New Patient'}
-      subtitle="Complete clinical profile, emergency contacts, and medical history"
+      title={selfService ? 'Edit My Profile' : initialData ? 'Edit Patient Record' : 'Register New Patient'}
+      subtitle={selfService ? 'Update your contact details and emergency contact.' : 'Complete clinical profile, emergency contacts, and medical history'}
       maxWidth="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input
-            label="Full Legal Name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="e.g. Johnathan Doe"
-            required
-          />
+        {!selfService && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Full Legal Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="e.g. Johnathan Doe"
+              required
+            />
+            <Input
+              label="Date of Birth"
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              required
+            />
+          </div>
+        )}
 
-          <Input
-            label="Date of Birth"
-            type="date"
-            value={dateOfBirth}
-            onChange={(e) => setDateOfBirth(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Select
-            label="Gender"
-            value={gender}
-            onChange={(e) => setGender(e.target.value as Patient['gender'])}
-          >
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </Select>
-
-          <Select
-            label="Blood Group"
-            value={bloodGroup}
-            onChange={(e) => setBloodGroup(e.target.value as Patient['bloodGroup'])}
-          >
-            {BLOOD_GROUPS.map((bg) => (
-              <option key={bg} value={bg}>
-                {bg}
-              </option>
-            ))}
-          </Select>
-
+        <div className={`grid grid-cols-1 gap-4 ${selfService ? 'sm:grid-cols-1' : 'sm:grid-cols-3'}`}>
+          {!selfService && (
+            <>
+              <Select
+                label="Gender"
+                value={gender}
+                onChange={(e) => setGender(e.target.value as Patient['gender'])}
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </Select>
+              <Select
+                label="Blood Group"
+                value={bloodGroup}
+                onChange={(e) => setBloodGroup(e.target.value as Patient['bloodGroup'])}
+              >
+                {BLOOD_GROUPS.map((bg) => <option key={bg} value={bg}>{bg}</option>)}
+              </Select>
+            </>
+          )}
           <Input
             label="Contact Phone"
             value={contactNumber}
@@ -136,13 +148,13 @@ export const PatientModal: React.FC<PatientModalProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input
+          {!selfService && <Input
             label="Email Address"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="patient@example.test"
-          />
+          />}
 
           <Input
             label="Residential Address"
@@ -179,16 +191,16 @@ export const PatientModal: React.FC<PatientModalProps> = ({
           </div>
         </div>
 
-        <div className="space-y-1.5">
+        {!selfService && <div className="space-y-1.5">
           <Input
             label="Known Drug Allergies (comma-separated)"
             value={allergiesText}
             onChange={(e) => setAllergiesText(e.target.value)}
             placeholder="e.g. Penicillin, Aspirin, Sulfa drugs"
           />
-        </div>
+        </div>}
 
-        <div className="space-y-1.5">
+        {!selfService && <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-zinc-300">
             Medical History Summary
           </label>
@@ -199,14 +211,14 @@ export const PatientModal: React.FC<PatientModalProps> = ({
             className="w-full rounded-2xl border border-zinc-700/80 bg-[#181a20] p-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder:text-zinc-500"
             placeholder="Known chronic illnesses, previous surgeries, or conditions..."
           />
-        </div>
+        </div>}
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="google" isLoading={isSubmitting}>
-            {initialData ? 'Save Changes' : 'Enroll Patient'}
+            {selfService || initialData ? 'Save Changes' : 'Enroll Patient'}
           </Button>
         </div>
       </form>
