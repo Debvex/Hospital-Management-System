@@ -1,6 +1,7 @@
-# 🏥 Hospital Management System (HMS)
+# Hospital Management System (HMS)
 
-A full-stack Hospital Management System built as a **5th-semester Software Engineering laboratory project**. It centralizes patient registration, doctor and department management, appointment scheduling, medical records, prescriptions, billing, and administrative reporting behind role-based access control.
+A full-stack Hospital Management System comprising of features like patient registration, doctor and department management, appointment scheduling, medical records, prescriptions, billing, and administrative reporting behind role-based access control.
+
 
 ![React](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB?logo=react&logoColor=white)
 ![Express](https://img.shields.io/badge/Backend-Express%20on%20Node.js-339933?logo=node.js&logoColor=white)
@@ -8,59 +9,17 @@ A full-stack Hospital Management System built as a **5th-semester Software Engin
 ![Auth](https://img.shields.io/badge/Auth-JWT%20%2B%20RBAC-orange)
 ![Status](https://img.shields.io/badge/Status-Academic%20prototype-lightgrey)
 
-> **⚠️ Academic prototype.** HMS is not a certified hospital information system. Use **synthetic data only**; never enter real patient information.
-
----
-
-## Table of Contents
-
-1. [Project Status](#project-status)
-2. [Features](#features)
-3. [User Roles](#user-roles)
-4. [Tech Stack](#tech-stack)
-5. [Architecture](#architecture)
-6. [Repository Structure](#repository-structure)
-7. [Getting Started](#getting-started)
-8. [Demo Accounts](#demo-accounts)
-9. [API Overview](#api-overview)
-10. [Database Design](#database-design)
-11. [Security Model](#security-model)
-12. [Testing](#testing)
-13. [Demonstration Walkthrough](#demonstration-walkthrough)
-14. [Documentation](#documentation)
-15. [Known Limitations](#known-limitations)
-16. [Roadmap](#roadmap)
-17. [Contributing](#contributing)
-
----
-
-## Project Status
-
-| Area | State |
-|---|---|
-| React + TypeScript frontend (`client/`) | ✅ Implemented; calls the live API for authentication and hospital data |
-| JavaScript Express API (`server/`) | ✅ Implemented with PostgreSQL, JWT authentication, and RBAC |
-| PostgreSQL schema + synthetic seed data | ✅ Applied and seeded automatically on first server start |
-| Backend unit and smoke tests | ✅ Node.js built-in test runner |
-| OpenAPI / Swagger UI | ⏳ Not implemented; endpoints are documented in [`server/README.md`](server/README.md) |
-| Production deployment | ⏳ Local or temporary deployment is sufficient for the lab |
-
-PostgreSQL is the source of truth. `client/src/lib/mockData.ts` is used only as the logged-out display fallback and for reference fixtures.
-
----
 
 ## Features
 
-- **Authentication and authorization:** registration, login, logout, JWT session expiry, and server-enforced roles.
-- **Patient management:** self-service profiles, staff search, and strict isolation between patients' records.
-- **Doctors and availability:** doctor profiles, departments, consultation fees, and availability windows. Inactive, expired, and booked slots are never offered.
-- **Appointments:** booking, cancellation, and rescheduling with server-side validation and **database-level double-booking protection**. Statuses: `scheduled`, `completed`, `cancelled`, `no_show`.
-- **Medical records and prescriptions:** consultation notes, diagnoses, and prescriptions linked to an appointment. History is preserved, not silently overwritten.
-- **Billing:** invoices with consultation fees, approved extra charges, totals, payment status, and payment timestamps (no external payment gateway).
-- **Administration:** dashboard KPIs, appointments by status, outstanding invoices, active staff, and audit events (read-only).
-- **Responsive UI:** persistent desktop sidebar, mobile navigation drawer, search, toasts, and notifications.
-
----
+- Authentication and authorization
+- Patient management
+- Doctors and availability
+- Appointments
+- Medical records and prescriptions
+- Billing
+- Administration
+- Responsive UI
 
 ## User Roles
 
@@ -72,8 +31,6 @@ PostgreSQL is the source of truth. `client/src/lib/mockData.ts` is used only as 
 | **Patient** | Self-service | Maintain own profile, browse doctors, book or cancel appointments, view own records and invoices |
 
 **Account approval rule:** the public signup form may *request* any supported role, but **Administrator, Doctor, and Receptionist accounts stay inactive until an administrator reviews and approves them.** A requested role never grants permissions by itself.
-
----
 
 ## Tech Stack
 
@@ -93,7 +50,7 @@ PostgreSQL is the source of truth. `client/src/lib/mockData.ts` is used only as 
 
 ## Architecture
 
-A modular monolith with three tiers:
+This is a 1-Tier architecture which comprises of:
 
 ```text
 React + TypeScript frontend (client/)
@@ -122,18 +79,19 @@ PostgreSQL database
 
 ```text
 hospital-management-system/
-├── client/     # React + TypeScript frontend (pnpm)
-├── server/     # Express API: routes, controllers, models, schema, seed, tests (npm)
-│   └── README.md   # Authoritative backend setup and endpoint reference
-├── docs/       # SRS, system design, ERD, and DFDs
-└── README.md
+├── client/                 # React + TypeScript frontend (pnpm)
+├── server/                 # Express API and database layer (npm)
+│   ├── src/                # Routes, controllers, middleware, and models
+│   ├── schema/             # PostgreSQL schema
+│   ├── seed/               # Synthetic demo data
+│   ├── tests/              # Backend tests
+│   └── README.md           # Backend setup and endpoint reference
+├── docs/                   # SRS, system design, ERD, and DFDs
+└── README.md               # Project overview and setup instructions
 ```
 
-Inside `server/src/`, code follows MVC boundaries (route modules, controllers, models). See [`server/README.md`](server/README.md) for the exact file layout.
 
----
-
-## Getting Started
+## Project Quick Start
 
 ### Prerequisites
 
@@ -155,28 +113,27 @@ CREATE USER hms_user WITH PASSWORD 'hms_password';
 CREATE DATABASE hms_db OWNER hms_user;
 ```
 
-> These credentials are for **local development only**. Use strong secrets anywhere else.
+>for local development only
 
 ### 3. Configure and start the backend
 
 ```bash
-cd server
-cp .env.example .env      # then edit .env
-npm install
-npm run dev
+cd server   
+pnpm install
+pnpm dev
 ```
 
-At minimum, set these values in `server/.env`:
+Remember to setup these necessary things in `server/.env`:
 
 ```env
 DATABASE_URL=postgresql://hms_user:hms_password@localhost:5432/hms_db
 JWT_SECRET=<long-random-string>   # e.g. node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-Other variables (for example `PORT`, `CORS_ORIGINS`, `JWT_EXPIRES_IN`) are listed in `server/.env.example`. The API listens on **http://localhost:8000** by default. On first startup the server **applies the SQL schema and seeds synthetic demo data**. To re-seed manually:
+Seed command for inserting dummy data:
 
 ```bash
-npm run db:seed
+pnpm run db:seed
 ```
 
 ### 4. Start the frontend
@@ -240,7 +197,7 @@ All endpoints are versioned under **`/api/v1`**; the health check is at `/health
 | Billing | `/invoices` | Create, view, update, `mark-paid` |
 | System | `/dashboard/summary`, `/audit-logs` | KPIs for authorized roles; admin-only audit log |
 
-> The exact, implemented route list lives in [`server/README.md`](server/README.md). Treat it as the source of truth.
+
 
 **Status codes:** `200` OK · `201` created · `204` no content · `400` invalid request · `401` unauthenticated · `403` forbidden · `404` not found or not visible · `409` conflict (e.g., slot already booked) · `500` unexpected error.
 
@@ -344,35 +301,5 @@ The backend suite uses the Node.js built-in test runner for unit and smoke tests
 
 Documentation describes the **implemented** system. When behavior changes, update the relevant document in the same change.
 
----
-
-## Known Limitations
-
-The first release intentionally excludes medical imaging, laboratory-device integration, insurance claims, external pharmacy communication, telemedicine, advanced accounting, emergency triage, and clinical decision support. Tokens are stateless, so logout removes the client token and server-side revocation is not implemented.
-
----
-
-## Roadmap
-
-- [ ] OpenAPI / Swagger UI for the REST API
-- [ ] Rate limiting on login and public registration
-- [ ] Password reset and email/SMS appointment reminders
-- [ ] Downloadable invoices
-- [ ] Frontend tests (role-aware navigation, forms, empty and loading states)
-- [ ] Database tests (constraints, migration reproducibility from an empty database)
-- [ ] Token revocation or refresh-token rotation with HTTP-only cookies
-- [ ] Configurable departments and richer audit reports
-
----
-
-## Contributing
-
-1. Create a focused branch: `git checkout -b feature/<short-name>`
-2. Use clear commit prefixes: `feat:`, `fix:`, `docs:`, `test:`
-3. Open a pull request describing the change and how you tested it.
-
-Never commit `.env` files, database dumps, tokens, build output, or real patient data.
-
----
 
 <sub>Built for the Software Engineering laboratory (5th semester). For educational use only.</sub>
