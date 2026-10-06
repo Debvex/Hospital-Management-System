@@ -50,7 +50,7 @@ A full-stack Hospital Management System comprising of features like patient regi
 
 ## Architecture
 
-This is a 1-Tier architecture which comprises of:
+This is a 2-Tier architecture which comprises of:
 
 ```text
 React + TypeScript frontend (client/)
@@ -65,7 +65,7 @@ Express API on Node.js (server/)
           │
           │  Parameterized SQL / transactions
           ▼
-PostgreSQL database
+PostgreSQL database server (provided by Supabase, a remote PostgreSQL database instance)
 ```
 
 - **Routes** connect requests to controllers.

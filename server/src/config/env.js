@@ -10,7 +10,7 @@ export const env = {
 };
 
 export function validateEnv() {
-  if (!env.databaseUrl) throw new Error('DATABASE_URL is required. Copy server/.env.example to server/.env.');
+  if (!env.databaseUrl) throw new Error('DATABASE_URL is required.');
   if (!env.jwtSecret || env.jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
   if (!Number.isInteger(env.port) || env.port < 1 || env.port > 65535) throw new Error('PORT must be a valid TCP port.');
 }
